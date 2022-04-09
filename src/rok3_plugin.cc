@@ -295,7 +295,7 @@ void Practice(void){
     T12 = jointToTransform12(q);
     T23 = jointToTransform23(q);
     
-    TIE = TI0*T01*T12*T23*T3E;
+    TIE = TI0*T01*T12*T23*T3E; 
     
     pos = jointToPosition(q);
     CIE = jointToRotMat(q);
