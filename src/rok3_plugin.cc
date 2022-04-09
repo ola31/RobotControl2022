@@ -138,8 +138,186 @@ namespace gazebo
     GZ_REGISTER_MODEL_PLUGIN(rok3_plugin);
 }
 
+
+/* get transform I0*/
+MatrixXd getTransformI0(){
+    
+   MatrixXd tmp_m(4,4);
+    
+    
+   tmp_m<<1,0,0,0,\
+         0,1,0,0,\
+         0,0,1,0,\
+         0,0,0,1;
+   
+   //tmp_m(0,0) = 1; tmp_m(0,1) = 0; tmp_m(0,2) = 0; tmp_m(0,3) = 0;
+   //tmp_m(0,0) = 1; tmp_m(0,1) = 0; tmp_m(0,2) = 0; tmp_m(0,3) = 0;
+   //tmp_m(0,0) = 1; tmp_m(0,1) = 0; tmp_m(0,2) = 0; tmp_m(0,3) = 0;
+   //tmp_m(0,0) = 1; tmp_m(0,1) = 0; tmp_m(0,2) = 0; tmp_m(0,3) = 0;
+    
+   return tmp_m;
+    
+}
+
+MatrixXd getTransform3E(){
+    
+    MatrixXd tmp_m(4,4);
+    int L3 = 1; //m
+    
+   tmp_m<<1,0,0,0,\
+         0,1,0,0,\
+         0,0,1,L3,\
+         0,0,0,1;
+    
+   return tmp_m; 
+    
+}
+
+MatrixXd jointToTransform01(VectorXd q){
+    
+    //q = generalized coordinates, a = [q1;q2;q3];
+    
+    MatrixXd tmp_m(4,4);
+    double qq = q(0);
+    int L0 = 1;
+    
+    double sq = sin(qq);
+    double cq = cos(qq);
+    
+   tmp_m<<cq, 0, sq, 0,\
+         0, 1,  0, 0,\
+        -sq, 0, cq, L0,\
+         0, 0, 0,  1;   
+    
+    
+    return tmp_m;
+}
+
+MatrixXd jointToTransform12(VectorXd q){
+    
+    //q = generalized coordinates, a = [q1;q2;q3];
+    
+    MatrixXd tmp_m(4,4);
+    double qq = q(1);
+    int L0 = 1;
+    
+    double sq = sin(qq);
+    double cq = cos(qq);
+    
+   tmp_m<<cq, 0, sq, 0,\
+         0, 1,  0, 0,\
+        -sq, 0, cq, L0,\
+         0, 0, 0,  1;   
+    
+    
+    return tmp_m;
+}
+
+MatrixXd jointToTransform23(VectorXd q){
+    
+    //q = generalized coordinates, a = [q1;q2;q3];
+    
+    MatrixXd tmp_m(4,4);
+    double qq = q(2);
+    int L0 = 1;
+    
+    double sq = sin(qq);
+    double cq = cos(qq);
+    
+   tmp_m<<cq, 0, sq, 0,\
+         0, 1,  0, 0,\
+        -sq, 0, cq, L0,\
+         0, 0, 0,  1;   
+    
+    
+    return tmp_m;
+}
+
+VectorXd jointToPosition(VectorXd q){
+    MatrixXd TI0(4,4),T3E(4,4),T01(4,4),T12(4,4),T23(4,4),TIE(4,4);
+    TI0 = getTransformI0();
+    T3E = getTransform3E();
+    T01 = jointToTransform01(q);
+    T12 = jointToTransform12(q);
+    T23 = jointToTransform23(q);   
+    TIE = TI0*T01*T12*T23*T3E;
+    
+    Vector3d position;
+    //position(0) = TIE(3,0);
+   // position(1) = TIE(3,1);  
+    //position(2) = TIE(3,2);
+    position = TIE.block(0,3,3,1);
+    
+    return position;
+}
+
+MatrixXd jointToRotMat(VectorXd q){
+    MatrixXd TI0(4,4),T3E(4,4),T01(4,4),T12(4,4),T23(4,4),TIE(4,4);
+    TI0 = getTransformI0();
+    T3E = getTransform3E();
+    T01 = jointToTransform01(q);
+    T12 = jointToTransform12(q);
+    T23 = jointToTransform23(q);   
+    TIE = TI0*T01*T12*T23*T3E;
+    
+    MatrixXd rot_m(3,3);
+    rot_m<<TIE(0,0),TIE(0,1),TIE(0,2),\
+          TIE(1,0),TIE(1,1),TIE(1,2),\
+          TIE(2,0),TIE(2,1),TIE(2,2);
+    
+    return rot_m;
+    
+}
+
+VectorXd rotToEuler(MatrixXd rot_Mat){   //Euler ZYX
+    Vector3d euler_zyx = {0,0,0};
+    
+    euler_zyx(0) = atan2(rot_Mat(1,0),rot_Mat(0,0));
+    euler_zyx(1) = atan2(-rot_Mat(2,0),sqrt(pow(rot_Mat(2,1),2)+pow(rot_Mat(2,2),2)));
+    euler_zyx(2) = atan2(rot_Mat(2,1),rot_Mat(2,2));
+    
+    return euler_zyx;
+}
+
+
+/* Preparing Robot control Practice*/
+void Practice(void){
+    MatrixXd TI0(4,4),T3E(4,4),T01(4,4),T12(4,4),T23(4,4),TIE(4,4);
+    Vector3d pos,euler;
+    MatrixXd CIE(3,3);
+    Vector3d q = {30,30,30};
+    
+    q = q*PI/180;
+
+    TI0 = getTransformI0();
+    T3E = getTransform3E();
+    T01 = jointToTransform01(q);
+    T12 = jointToTransform12(q);
+    T23 = jointToTransform23(q);
+    
+    TIE = TI0*T01*T12*T23*T3E;
+    
+    pos = jointToPosition(q);
+    CIE = jointToRotMat(q);
+    euler = rotToEuler(CIE);
+    
+    std::cout<<"hello_world"<<std::endl;
+    
+    
+    std::cout<<"TIE = "<<std::endl<<TIE<<std::endl;
+    
+    std::cout<<"Position = "<<std::endl<<pos<<std::endl;
+    std::cout<<"CIE = "<<std::endl<<CIE<<std::endl;
+    std::cout<<"Euler = "<<std::endl<<euler<<std::endl;
+    
+    
+    
+    
+}
+
 void gazebo::rok3_plugin::Load(physics::ModelPtr _model, sdf::ElementPtr /*_sdf*/)
 {
+    
     /*
      * Loading model data and initializing the system before simulation 
      */
@@ -179,6 +357,9 @@ void gazebo::rok3_plugin::Load(physics::ModelPtr _model, sdf::ElementPtr /*_sdf*
     #endif
 
     update_connection = event::Events::ConnectWorldUpdateBegin(boost::bind(&rok3_plugin::UpdateAlgorithm, this));
+    
+    
+    Practice();
 
 }
 
