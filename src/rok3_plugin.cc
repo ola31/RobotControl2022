@@ -531,7 +531,7 @@ void Practice(void){
     
     std::cout<<"Position = "<<std::endl<<pos<<std::endl;
     std::cout<<"CIE = "<<std::endl<<CIE<<std::endl;
-    std::cout<<"Euler = "<<std::endl<<euler*180/PI<<std::endl;
+    std::cout<<"Euler = "<<std::endl<<euler<<std::endl;
     
     
     
@@ -612,6 +612,21 @@ void gazebo::rok3_plugin::UpdateAlgorithm()
     //* Read Sensors data
     GetjointData();
     
+    //* Target Angles
+
+    joint[LHY].targetRadian = 10*D2R;
+    joint[LHR].targetRadian = 20*D2R;
+    joint[LHP].targetRadian = 30*D2R;
+    joint[LKN].targetRadian = 40*D2R;
+    joint[LAP].targetRadian = 50*D2R;
+    joint[LAR].targetRadian = 60*D2R;
+
+
+
+  /*First motion Complete.*/
+
+
+
     //* Joint Controller
     jointController();
 }
