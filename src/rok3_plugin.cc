@@ -640,6 +640,50 @@ MatrixXd jointToRotJac(VectorXd q)
     return J_R;
 }
 
+MatrixXd pseudoInverseMat(MatrixXd A, double lambda)
+{
+    // Input: Any m-by-n matrix
+    // Output: An n-by-m pseudo-inverse of the input according to the Moore-Penrose formula
+    MatrixXd pinvA;
+    MatrixXd I;
+
+    int m = A.rows();
+    int n = A.cols();
+    if(m>=n){
+        I = MatrixXd::Identity(n,n);
+        pinvA = ((A.transpose() * A + lambda*lambda*I).inverse())*A.transpose();
+    }
+    else if(m<n){
+        I = MatrixXd::Identity(m,m);
+        pinvA = A.transpose()*((A * A.transpose() + lambda*lambda*I).inverse());
+    }
+
+    return pinvA;
+}
+
+VectorXd rotMatToRotVec(MatrixXd C)
+{
+    // Input: a rotation matrix C
+    // Output: the rotational vector which describes the rotation C
+    Vector3d phi,n;
+    double th;
+    
+    if(fabs(th)<0.001){
+         n << 0,0,0;
+    }
+    else{
+
+        th = acos( (C(0,0) + C(1,1) + C(2,2)) / 2.0 );
+
+        n << (C(2,1) - C(1,2)), (C(0,2) - C(2,0)) , (C(1,0) - C(0,1)) ;
+        n = (1.0 / (2.0*sin(th))) * n;
+    }
+        
+    phi = th*n;
+    
+    return phi;
+}
+
 
 /* Preparing Robot control Practice*/
 void Practice(void){
@@ -678,7 +722,7 @@ void Practice(void){
     //CIE = jointToRotMat(q);
     //euler = rotToEuler(CIE);
     //
-    std::cout<<"hello_world"<<std::endl;
+    std::cout<<"hello_world"<<std::endl<<std::endl;
     //
     //
     //std::cout<<"TIE = "<<std::endl<<TIE<<std::endl;
@@ -686,18 +730,56 @@ void Practice(void){
     //std::cout<<"Position = "<<std::endl<<pos<<std::endl;
     //std::cout<<"CIE = "<<std::endl<<CIE<<std::endl;
     //std::cout<<"Euler = "<<std::endl<<euler<<std::endl;
-    MatrixXd J_P = MatrixXd::Zero(3,6);
-    MatrixXd J_R(3,6);
-    J_P = jointToPosJac(q);
-    J_R = jointToRotJac(q);
+    //MatrixXd J_P = MatrixXd::Zero(3,6);
+   // MatrixXd J_R(3,6);
+   // J_P = jointToPosJac(q);
+   // J_R = jointToRotJac(q);
 
 
-    std::cout << "Test, JP:" << std::endl << J_P << std::endl;
-    std::cout << "Test, JR:" << std::endl << J_R << std::endl;
+  //  std::cout << "Test, JP:" << std::endl << J_P << std::endl;
+   // std::cout << "Test, JR:" << std::endl << J_R << std::endl;
     //Practice3 was completed. 
+
+
     
+
+
+    MatrixXd J(6,6);
+    J << jointToPosJac(q),\
+         jointToRotJac(q);
+                   
+    MatrixXd pinvj;
+    pinvj = pseudoInverseMat(J, 0.0);
+
+    MatrixXd invj;
+    invj = J.inverse();
+
+    std::cout<<" Test, Inverse"<<std::endl;
+    std::cout<< invj <<std::endl;
+    std::cout<<std::endl;
     
+
+    std::cout<<" Test, PseudoInverse"<<std::endl;
+    std::cout<< pinvj <<std::endl;
+    std::cout<<std::endl;
     
+    VectorXd q_des(6),q_init(6);
+    MatrixXd C_err(3,3), C_des(3,3), C_init(3,3);
+
+    q_init = 0.5*q_des;
+    C_des = jointToRotMat(q_des);
+    C_init = jointToRotMat(q_init);
+    C_err = C_des * C_init.transpose();
+
+    VectorXd dph(3);
+
+    dph = rotMatToRotVec(C_err);
+    
+    std::cout<<" Test, Rotational Vector"<<std::endl;
+    std::cout<< pinvj <<std::endl;
+    std::cout<<std::endl;
+
+    //Practice 4 was completed
     
 }
 
