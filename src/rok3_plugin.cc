@@ -58,6 +58,34 @@ using namespace RigidBodyDynamics::Math;
 
 using namespace std;
 
+VectorXd q_cal2;
+
+
+double T = 5000.0;  //ms
+double t = 0.0;
+double dt_ms = 1.0; //ms
+int phase = 0;
+
+Vector3d goal_posi;
+Vector3d start_posi;
+Vector3d command_posi;
+Vector3d present_posi;
+
+MatrixXd goal_rot(3,3);
+MatrixXd start_rot(3,3);
+MatrixXd present_rot(3,3);
+MatrixXd command_rot(3,3);
+
+VectorXd q_present(6);
+VectorXd q_command(6);
+
+VectorXd q0(6);
+
+
+typedef struct _AngleAxis{
+    Vector3d n;
+    double th;
+} AngleAxis;
 
 namespace gazebo
 {
@@ -683,6 +711,74 @@ VectorXd rotMatToRotVec(MatrixXd C)
     return phi;
 }
 
+AngleAxis rotMatToAngleAxis(MatrixXd C)
+{
+    // Input: a rotation matrix C
+    // Output: the rotational vector which describes the rotation C
+
+    AngleAxis a_axis;
+
+    Vector3d n;
+    double th;
+    
+    th = acos( (C(0,0) + C(1,1) + C(2,2) -1.0) / 2.0 );
+
+    if(fabs(th)<0.001){
+         n << 0,0,0;
+    }
+    else{
+        n << (C(2,1) - C(1,2)), (C(0,2) - C(2,0)) , (C(1,0) - C(0,1)) ;
+        n = (1.0 / (2.0*sin(th))) * n;
+    }
+        
+    //phi = th*n;
+    a_axis.n = n;
+    a_axis.th = th;
+    
+    return a_axis;
+}
+
+MatrixXd angleAxisToRotMat(AngleAxis angle_axis){
+    Vector3d n = angle_axis.n;
+    double th = angle_axis.th;
+
+    MatrixXd C(3,3);
+    double nx = n(0);
+    double ny = n(1);
+    double nz = n(2);
+    double s = sin(th);
+    double c = cos(th);
+    C<< nx*nx*(1.0-c)+c,     nx*ny*(1.0-c)-nz*s,   nx*nz*(1.0-c)+ny*s,\
+        nx*ny*(1.0-c)+nz*s,  ny*ny*(1.0-c)+c,      ny*nz*(1.0-c)-nx*s, \
+        nx*nz*(1.0-c)-ny*s,  ny*nz*(1.0-c)+nx*s,   nz*nz*(1.0-c)+c;
+    return C;
+}              
+
+MatrixXd EulerZyxToRotMat(double z_rot, double y_rot, double x_rot){
+    MatrixXd Z_rot(3,3);
+    MatrixXd Y_rot(3,3);
+    MatrixXd X_rot(3,3);
+
+    double cz = cos(z_rot);
+    double cy = cos(y_rot);
+    double cx = cos(x_rot);
+    double sz = sin(z_rot);
+    double sy = sin(y_rot);
+    double sx = sin(x_rot);
+
+    Z_rot << cz, -sz, 0,\
+             sz, cz, 0,\
+              0,  0, 1;
+    Y_rot << cy, 0, sy, \
+              0, 1,  0, \
+             -sy, 0, cy;
+    X_rot << 1, 0, 0,\
+             0, cx, -sx,\
+             0,  sx ,cx  ;
+    return Z_rot*Y_rot*X_rot;
+
+}
+
 VectorXd inverseKinematics(Vector3d r_des, MatrixXd C_des, VectorXd q0, double tol)
 {
     // Input: desired end-effector position, desired end-effector orientation, initial guess for joint angles, threshold for the stopping-criterion
@@ -760,6 +856,12 @@ void Practice(void){
     q(3) = 40;
     q(4) = 50;
     q(5) = 60; 
+   //q(0) = 0;
+   //q(1) = 0;
+   //q(2) = -30;
+   //q(3) = 60;
+   //q(4) = -30;
+   //q(5) = 0; 
 
     /*
     Practice2 is finished. 
@@ -824,26 +926,26 @@ void Practice(void){
    // std::cout<< pinvj <<std::endl;
    // std::cout<<std::endl;
    // 
-   // VectorXd q_des(6),q_init(6);
-   // q_des = q;
-   // MatrixXd C_err(3,3), C_des(3,3), C_init(3,3);
+    VectorXd q_des(6),q_init(6);
+    q_des = q;
+    MatrixXd C_err(3,3), C_des(3,3), C_init(3,3);
 //
-   // q_init = 0.5*q_des;
-   // C_des = jointToRotMat(q_des);
-   // C_init = jointToRotMat(q_init);
-   // C_err = C_des * C_init.transpose();
+    q_init = 0.5*q_des;
+    C_des = jointToRotMat(q_des);
+    C_init = jointToRotMat(q_init);
+    C_err = C_des * C_init.transpose();
 //
-   // VectorXd dph(3);
+    VectorXd dph(3);
 //
-   // dph = rotMatToRotVec(C_err);
+    dph = rotMatToRotVec(C_err);
    // 
    // std::cout<<" Test, Rotational Vector"<<std::endl;
-   // std::cout<< dph <<std::endl;
-   // std::cout<<std::endl;
+    std::cout<< dph <<std::endl;
+    std::cout<<std::endl;
 
     //Practice 4 was completed
 
-
+/*
     Vector3d r_des = jointToPosition(q);
     MatrixXd C_des = jointToRotMat(q);
         
@@ -851,8 +953,47 @@ void Practice(void){
 
     std::cout<<"IK result"<<std::endl;
     std::cout<<q_cal*57.2958<<std::endl;
+*/
+
+ //   Vector3d r_des = {0,0.105,-0.55};
+ //  // r_des(0) = 0;
+ //  // r_des(1) = 0.105;
+ //  // r_des(2) = -0.55;
+ //   //r_des<<0,0.105,-0.55;
+//
+ //   MatrixXd C_des(3,3);
+ //   C_des<<   1,    0,   0,\
+ //             0,    1,   0,\
+ //             0,    0,   1;  
+ //    
+ //    VectorXd q_cal = inverseKinematics(r_des, C_des, q, 0.001);
+ //    std::cout<<"IK result"<<std::endl;
+ //   std::cout<<q_cal*57.2958<<std::endl;
+//
+ //   q_cal2 = q_cal;
+//
+ //   Vector3d rrr;
+ //   rrr = jointToPosition(q_cal);
+ //   
+
+
+
     //practice 5 was completed
     
+}
+
+double func_1_cos(double t, double init, double final, double T){
+    double des;
+    des = (final - init)*0.5*(1.0 - cos(PI*(t/T))) + init;
+    return des;
+}
+
+Vector3d func_1_cos(double t, Vector3d init, Vector3d final, double T){
+    Vector3d des;
+    des(0) = (final(0) - init(0))*0.5*(1.0 - cos(PI*(t/T))) + init(0);
+    des(1) = (final(1) - init(1))*0.5*(1.0 - cos(PI*(t/T))) + init(1);
+    des(2) = (final(2) - init(2))*0.5*(1.0 - cos(PI*(t/T))) + init(2);
+    return des;
 }
 
 
@@ -919,9 +1060,9 @@ void gazebo::rok3_plugin::UpdateAlgorithm()
     #endif
 
     dt = current_time.Double() - last_update_time.Double();
-    //    cout << "dt:" << dt << endl;
+     //   cout << "dt:" << dt << endl;
     time = time + dt;
-    //    cout << "time:" << time << endl;
+  //      cout << "time:" << time << endl;
 
     //* setting for getting dt at next step
     last_update_time = current_time;
@@ -929,15 +1070,104 @@ void gazebo::rok3_plugin::UpdateAlgorithm()
 
     //* Read Sensors data
     GetjointData();
+
+if(phase == 0 and time>5){
+    phase++;
+}
+
+if(phase == 0){
+    q_command<<0,0,0,0,0,0;
+}
+
+if(phase == 1){
+    //cout<<"phase 1"<<endl;
+    q_present(0) = joint[LHY].actualRadian;
+    q_present(1) = joint[LHR].actualRadian;
+    q_present(2) = joint[LHP].actualRadian;
+    q_present(3) = joint[LKN].actualRadian;
+    q_present(4) = joint[LAP].actualRadian;
+    q_present(5) = joint[LAR].actualRadian;
+
+    present_posi = jointToPosition(q_present);
+    present_rot = jointToRotMat(q_present);
+
+    start_posi = goal_posi  = present_posi;  //초기화
+    start_rot = goal_rot = present_rot;     //초기화
+
+    q_command = q_present;
+
+    t = 0.0;
+
+    phase++;
+}
+
+
+else if(phase == 2){ //walk ready pose
+    //cout<<"phase 2"<<endl;
+    goal_posi<<0,0.105,-0.55;
+    goal_rot = EulerZyxToRotMat(0, 50*D2R, 0);
+  //  VectorXd q0(6);
+    q0 <<0, 0, -30, 60, -30, 0;
+    q0 = q0*D2R;
+    MatrixXd C_err = goal_rot*start_rot.transpose();
+    AngleAxis a_axis = rotMatToAngleAxis(C_err);
+
+    AngleAxis del_a_axis = a_axis; //초기화
+    MatrixXd del_C;
+
+    command_rot = start_rot;
+
+
+
+    if(t<T){
+
+        command_posi = func_1_cos(t,start_posi, goal_posi,T);
+
+        del_a_axis.th = func_1_cos(t, 0.0 , a_axis.th, T);
+
+        del_C = angleAxisToRotMat(del_a_axis);
+
+        command_rot = start_rot*del_C;
+        q_command = inverseKinematics(command_posi, command_rot, q0, 0.001);
+        
+        q0 = q_command;
+
+ 
+
+    }
+    t+=dt_ms;
+
+}
+
+   static double max_yaw =0.0;
+
+
+   cout<<"===== q desired ====="<<endl;
+   cout<<q_command*R2D<<endl;
+   cout<< "Max Yaw : "<<max_yaw<<endl;
+   cout<<"dt : "<<dt<<endl;
+   cout<<"====================="<<endl;
+
+   if(abs(q_command(0)) > abs(max_yaw)){
+       max_yaw = q_command(0);
+   }
+
     
     //* Target Angles
 
-    joint[LHY].targetRadian = 10*D2R;
-    joint[LHR].targetRadian = 20*D2R;
-    joint[LHP].targetRadian = 30*D2R;
-    joint[LKN].targetRadian = 40*D2R;
-    joint[LAP].targetRadian = 50*D2R;
-    joint[LAR].targetRadian = 60*D2R;
+    joint[LHY].targetRadian = q_command(0);//*D2R;
+    joint[LHR].targetRadian = q_command(1);//*D2R;
+    joint[LHP].targetRadian = q_command(2);//*D2R;
+    joint[LKN].targetRadian = q_command(3);//*D2R;
+    joint[LAP].targetRadian = q_command(4);//*D2R;
+    joint[LAR].targetRadian = q_command(5);//*D2R;
+
+
+
+  // if(t<T){
+  //      
+  //      func_1_cos
+  //  }
 
 
 
@@ -1104,12 +1334,12 @@ void gazebo::rok3_plugin::SetJointPIDgain()
     /*
      * Set each joint PID gain for joint control
      */
-    joint[LHY].Kp = 2000;
-    joint[LHR].Kp = 9000;
-    joint[LHP].Kp = 2000;
-    joint[LKN].Kp = 5000;
-    joint[LAP].Kp = 3000;
-    joint[LAR].Kp = 3000;
+    joint[LHY].Kp = 2*  2000;
+    joint[LHR].Kp = 2*  9000;
+    joint[LHP].Kp = 2*  2000;
+    joint[LKN].Kp = 2*  5000;
+    joint[LAP].Kp = 2*  3000;
+    joint[LAR].Kp = 2*  3000;
 
     joint[RHY].Kp = joint[LHY].Kp;
     joint[RHR].Kp = joint[LHR].Kp;
@@ -1118,14 +1348,14 @@ void gazebo::rok3_plugin::SetJointPIDgain()
     joint[RAP].Kp = joint[LAP].Kp;
     joint[RAR].Kp = joint[LAR].Kp;
 
-    joint[WST].Kp = 2.;
-
-    joint[LHY].Kd = 2.;
-    joint[LHR].Kd = 2.;
-    joint[LHP].Kd = 2.;
-    joint[LKN].Kd = 4.;
-    joint[LAP].Kd = 2.;
-    joint[LAR].Kd = 2.;
+    joint[WST].Kp = 2* 2.;
+ 
+    joint[LHY].Kd = 2* 2.;
+    joint[LHR].Kd = 2* 2.;
+    joint[LHP].Kd = 2* 2.;
+    joint[LKN].Kd = 2* 4.;
+    joint[LAP].Kd = 2* 2.;
+    joint[LAR].Kd = 2* 2.;
 
     joint[RHY].Kd = joint[LHY].Kd;
     joint[RHR].Kd = joint[LHR].Kd;
