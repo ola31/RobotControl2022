@@ -13,8 +13,11 @@
  */
 //* Header file for C++
 #include <stdio.h>
+#include <stdlib.h>
 #include <iostream>
 #include <boost/bind.hpp>
+
+#include <time.h>
 
 //* Header file for Gazebo and Ros
 #include <gazebo/gazebo.hh>
@@ -61,10 +64,13 @@ using namespace std;
 VectorXd q_cal2;
 
 
-double T = 2000.0;  //ms
+double T = 5000.0;  //ms
 double t = T + 1.0;
 double dt_ms = 1.0; //ms
 int phase = 0;
+
+static struct timespec ik_start_time;
+static struct timespec ik_end_time;
 
 Vector3d goal_posi;
 Vector3d start_posi;
@@ -783,6 +789,9 @@ VectorXd inverseKinematics(Vector3d r_des, MatrixXd C_des, VectorXd q0, double t
 {
     // Input: desired end-effector position, desired end-effector orientation, initial guess for joint angles, threshold for the stopping-criterion
     // Output: joint angles which match desired end-effector position and orientation
+
+    clock_gettime(CLOCK_MONOTONIC, &ik_start_time);
+    
     double num_it;
     MatrixXd J_P(3,6), J_R(3,6), J(6,6), pinvJ(6,6), C_err(3,3), C_IE(3,3);
     VectorXd q(6),dq(6),dXe(6);
@@ -836,7 +845,12 @@ VectorXd inverseKinematics(Vector3d r_des, MatrixXd C_des, VectorXd q0, double t
                    
         num_it++;
     }
+    clock_gettime(CLOCK_MONOTONIC, &ik_end_time);
+
+    long nano_sec_dt = ik_end_time.tv_nsec - ik_start_time.tv_nsec;
+    if(nano_sec_dt<0) nano_sec_dt += 1000000000;
     std::cout << "iteration: " << num_it << ", value: " << q << std::endl;
+    std::cout<<"IK Dt(us) : "<<nano_sec_dt/1000<<std::endl;
     
     return q;
 }
@@ -1096,16 +1110,20 @@ if(phase == 1){
 
     q_command = q_present;
 
+    q0 <<0, 0, -30, 60, -30, 0;
+    q0 = q0*D2R;
+
     t = 0.0;
 
     phase++;
+
 }
 
 
 else if(phase == 2){ //walk ready pose
     //cout<<"phase 2"<<endl;
-    goal_posi<<0,0.105,-0.55;
-    goal_rot = EulerZyxToRotMat(0, 90*D2R, 0);
+    goal_posi<<0,0.105,-0.65;
+    goal_rot = EulerZyxToRotMat(0*D2R, 0*D2R, 0*D2R);
   //  VectorXd q0(6);
   if(t>T){
       
@@ -1136,14 +1154,36 @@ else if(phase == 2){ //walk ready pose
 else if(phase == 3){ //walk ready pose
     //cout<<"phase 2"<<endl;
    // goal_posi(2) -= 0.2;
-   goal_posi<<0,0.105,-0.75;
-    goal_rot = EulerZyxToRotMat(0, 0*D2R, 0);      
+    goal_posi<<0,0.105,-0.65;
+    goal_rot = EulerZyxToRotMat(0, 90*D2R, 0);      
   //  VectorXd q0(6);
+    if(t>T){
+      
+      phase--;
+
+      q_present(0) = joint[LHY].actualRadian;
+      q_present(1) = joint[LHR].actualRadian;
+      q_present(2) = joint[LHP].actualRadian;
+      q_present(3) = joint[LKN].actualRadian;
+      q_present(4) = joint[LAP].actualRadian;
+      q_present(5) = joint[LAR].actualRadian;
+      
+      present_posi = jointToPosition(q_present);
+      present_rot = jointToRotMat(q_present);
+
+      start_posi = present_posi;
+      goal_posi = present_posi;
+
+      start_rot = present_rot;
+      goal_rot = present_rot;
+
+      //goal_posi(2) -= 0.2;
+      t = 0.0;
+  }
+
 
 }
 
-    q0 <<0, 0, -30, 60, -30, 0;
-    q0 = q0*D2R;
     MatrixXd C_err = goal_rot*start_rot.transpose();
     AngleAxis a_axis = rotMatToAngleAxis(C_err);
 
