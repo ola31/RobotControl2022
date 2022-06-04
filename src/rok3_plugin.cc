@@ -61,8 +61,8 @@ using namespace std;
 VectorXd q_cal2;
 
 
-double T = 5000.0;  //ms
-double t = 0.0;
+double T = 2000.0;  //ms
+double t = T + 1.0;
 double dt_ms = 1.0; //ms
 int phase = 0;
 
@@ -1105,8 +1105,43 @@ if(phase == 1){
 else if(phase == 2){ //walk ready pose
     //cout<<"phase 2"<<endl;
     goal_posi<<0,0.105,-0.55;
-    goal_rot = EulerZyxToRotMat(0, 50*D2R, 0);
+    goal_rot = EulerZyxToRotMat(0, 90*D2R, 0);
   //  VectorXd q0(6);
+  if(t>T){
+      
+      phase++;
+
+      q_present(0) = joint[LHY].actualRadian;
+      q_present(1) = joint[LHR].actualRadian;
+      q_present(2) = joint[LHP].actualRadian;
+      q_present(3) = joint[LKN].actualRadian;
+      q_present(4) = joint[LAP].actualRadian;
+      q_present(5) = joint[LAR].actualRadian;
+      
+      present_posi = jointToPosition(q_present);
+      present_rot = jointToRotMat(q_present);
+
+      start_posi = present_posi;
+      goal_posi = present_posi;
+
+      start_rot = present_rot;
+      goal_rot = present_rot;
+
+      //goal_posi(2) -= 0.2;
+      t = 0.0;
+  }
+
+}
+
+else if(phase == 3){ //walk ready pose
+    //cout<<"phase 2"<<endl;
+   // goal_posi(2) -= 0.2;
+   goal_posi<<0,0.105,-0.75;
+    goal_rot = EulerZyxToRotMat(0, 0*D2R, 0);      
+  //  VectorXd q0(6);
+
+}
+
     q0 <<0, 0, -30, 60, -30, 0;
     q0 = q0*D2R;
     MatrixXd C_err = goal_rot*start_rot.transpose();
@@ -1127,23 +1162,23 @@ else if(phase == 2){ //walk ready pose
 
         del_C = angleAxisToRotMat(del_a_axis);
 
-        command_rot = start_rot*del_C;
-        q_command = inverseKinematics(command_posi, command_rot, q0, 0.001);
+        command_rot = start_rot*del_C;//goal_rot;//start_rot*del_C;
+        q_command = inverseKinematics(command_posi, command_rot, q0, 0.0001);
         
         q0 = q_command;
 
- 
-
     }
-    t+=dt_ms;
 
-}
+    t+=dt_ms;
 
    static double max_yaw =0.0;
 
 
+   cout<<"==== Goal Position ===="<<endl;
+   cout<<goal_posi<<endl;
    cout<<"===== q desired ====="<<endl;
    cout<<q_command*R2D<<endl;
+   cout<<"====================="<<endl;
    cout<< "Max Yaw : "<<max_yaw<<endl;
    cout<<"dt : "<<dt<<endl;
    cout<<"====================="<<endl;
@@ -1161,14 +1196,6 @@ else if(phase == 2){ //walk ready pose
     joint[LKN].targetRadian = q_command(3);//*D2R;
     joint[LAP].targetRadian = q_command(4);//*D2R;
     joint[LAR].targetRadian = q_command(5);//*D2R;
-
-
-
-  // if(t<T){
-  //      
-  //      func_1_cos
-  //  }
-
 
 
   /*First motion Complete.*/
