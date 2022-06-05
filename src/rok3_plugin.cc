@@ -125,6 +125,27 @@ namespace gazebo
 
         physics::JointPtr LS, RS;
 
+        /* ROS */
+
+        ros::NodeHandle n;
+
+
+        ros::Publisher LHY_pub;
+        ros::Publisher LHR_pub;
+        ros::Publisher LHP_pub;
+        ros::Publisher LKN_pub;
+        ros::Publisher LAP_pub;
+        ros::Publisher LAR_pub;
+
+        std_msgs::Float64 LHY_msg;
+        std_msgs::Float64 LHR_msg;
+        std_msgs::Float64 LHP_msg;
+        std_msgs::Float64 LKN_msg;
+        std_msgs::Float64 LAP_msg;
+        std_msgs::Float64 LAR_msg;
+
+
+
         //* Index setting for each joint
         
         enum
@@ -747,16 +768,24 @@ AngleAxis rotMatToAngleAxis(MatrixXd C)
 MatrixXd angleAxisToRotMat(AngleAxis angle_axis){
     Vector3d n = angle_axis.n;
     double th = angle_axis.th;
-
     MatrixXd C(3,3);
-    double nx = n(0);
-    double ny = n(1);
-    double nz = n(2);
-    double s = sin(th);
-    double c = cos(th);
-    C<< nx*nx*(1.0-c)+c,     nx*ny*(1.0-c)-nz*s,   nx*nz*(1.0-c)+ny*s,\
-        nx*ny*(1.0-c)+nz*s,  ny*ny*(1.0-c)+c,      ny*nz*(1.0-c)-nx*s, \
-        nx*nz*(1.0-c)-ny*s,  ny*nz*(1.0-c)+nx*s,   nz*nz*(1.0-c)+c;
+
+    if(fabs(th)<0.001){
+        C<<1,0,0,\
+           0,1,0,\
+           0,0,1;
+    }
+    else{
+
+        double nx = n(0);
+        double ny = n(1);
+        double nz = n(2);
+        double s = sin(th);
+        double c = cos(th);
+        C<< nx*nx*(1.0-c)+c,     nx*ny*(1.0-c)-nz*s,   nx*nz*(1.0-c)+ny*s,\
+            nx*ny*(1.0-c)+nz*s,  ny*ny*(1.0-c)+c,      ny*nz*(1.0-c)-nx*s, \
+            nx*nz*(1.0-c)-ny*s,  ny*nz*(1.0-c)+nx*s,   nz*nz*(1.0-c)+c;
+    }
     return C;
 }              
 
@@ -768,6 +797,7 @@ MatrixXd EulerZyxToRotMat(double z_rot, double y_rot, double x_rot){
     double cz = cos(z_rot);
     double cy = cos(y_rot);
     double cx = cos(x_rot);
+
     double sz = sin(z_rot);
     double sy = sin(y_rot);
     double sx = sin(x_rot);
@@ -781,7 +811,9 @@ MatrixXd EulerZyxToRotMat(double z_rot, double y_rot, double x_rot){
     X_rot << 1, 0, 0,\
              0, cx, -sx,\
              0,  sx ,cx  ;
+             
     return Z_rot*Y_rot*X_rot;
+    //return X_rot*Y_rot*Z_rot;
 
 }
 
@@ -792,7 +824,7 @@ VectorXd inverseKinematics(Vector3d r_des, MatrixXd C_des, VectorXd q0, double t
 
     clock_gettime(CLOCK_MONOTONIC, &ik_start_time);
     
-    double num_it;
+    int num_it=0;
     MatrixXd J_P(3,6), J_R(3,6), J(6,6), pinvJ(6,6), C_err(3,3), C_IE(3,3);
     VectorXd q(6),dq(6),dXe(6);
     Vector3d dr, dph;
@@ -1043,6 +1075,16 @@ void gazebo::rok3_plugin::Load(physics::ModelPtr _model, sdf::ElementPtr /*_sdf*
     SetJointPIDgain();
 
 
+    //ROS Publishers
+    LHY_pub = n.advertise<std_msgs::Float64>("command_joint/LHY", 1000);
+    LHR_pub = n.advertise<std_msgs::Float64>("command_joint/LHR", 1000);
+    LHP_pub = n.advertise<std_msgs::Float64>("command_joint/LHP", 1000);
+    LKN_pub = n.advertise<std_msgs::Float64>("command_joint/LKN", 1000);
+    LAP_pub = n.advertise<std_msgs::Float64>("command_joint/LAP", 1000);
+    LAR_pub = n.advertise<std_msgs::Float64>("command_joint/LHR", 1000);
+
+
+
     //* setting for getting dt
     
     //last_update_time = model->GetWorld()->GetSimTime();
@@ -1095,12 +1137,12 @@ if(phase == 0){
 
 if(phase == 1){
     //cout<<"phase 1"<<endl;
-    q_present(0) = joint[LHY].actualRadian;
-    q_present(1) = joint[LHR].actualRadian;
-    q_present(2) = joint[LHP].actualRadian;
-    q_present(3) = joint[LKN].actualRadian;
-    q_present(4) = joint[LAP].actualRadian;
-    q_present(5) = joint[LAR].actualRadian;
+    q_present(0) = 0.0;//joint[LHY].actualRadian;
+    q_present(1) = 0.0;//joint[LHR].actualRadian;
+    q_present(2) = 0.0;//joint[LHP].actualRadian;
+    q_present(3) = 0.0;//joint[LKN].actualRadian;
+    q_present(4) = 0.0;//joint[LAP].actualRadian;
+    q_present(5) = 0.0;//joint[LAR].actualRadian;
 
     present_posi = jointToPosition(q_present);
     present_rot = jointToRotMat(q_present);
@@ -1122,32 +1164,37 @@ if(phase == 1){
 
 else if(phase == 2){ //walk ready pose
     //cout<<"phase 2"<<endl;
-    goal_posi<<0,0.105,-0.65;
+    goal_posi<<0,0.105,-0.55;
     goal_rot = EulerZyxToRotMat(0*D2R, 0*D2R, 0*D2R);
   //  VectorXd q0(6);
+  /*
   if(t>T){
       
       phase++;
-
+    
       q_present(0) = joint[LHY].actualRadian;
       q_present(1) = joint[LHR].actualRadian;
       q_present(2) = joint[LHP].actualRadian;
       q_present(3) = joint[LKN].actualRadian;
       q_present(4) = joint[LAP].actualRadian;
       q_present(5) = joint[LAR].actualRadian;
-      
+          
       present_posi = jointToPosition(q_present);
       present_rot = jointToRotMat(q_present);
+    
 
       start_posi = present_posi;
       goal_posi = present_posi;
 
       start_rot = present_rot;
       goal_rot = present_rot;
-
+    
+      start_posi = goal_posi;
+      start_rot = goal_rot;
       //goal_posi(2) -= 0.2;
       t = 0.0;
   }
+  */
 
 }
 
@@ -1155,12 +1202,14 @@ else if(phase == 3){ //walk ready pose
     //cout<<"phase 2"<<endl;
    // goal_posi(2) -= 0.2;
     goal_posi<<0,0.105,-0.65;
-    goal_rot = EulerZyxToRotMat(0, 90*D2R, 0);      
+    goal_rot = EulerZyxToRotMat(0, 45*D2R, 45*D2R);      
   //  VectorXd q0(6);
+  /*
     if(t>T){
       
       phase--;
 
+      
       q_present(0) = joint[LHY].actualRadian;
       q_present(1) = joint[LHR].actualRadian;
       q_present(2) = joint[LHP].actualRadian;
@@ -1176,10 +1225,13 @@ else if(phase == 3){ //walk ready pose
 
       start_rot = present_rot;
       goal_rot = present_rot;
-
+      
+      start_posi = goal_posi;
+      start_rot = goal_rot;
       //goal_posi(2) -= 0.2;
       t = 0.0;
   }
+  */
 
 
 }
@@ -1194,7 +1246,7 @@ else if(phase == 3){ //walk ready pose
 
 
 
-    if(t<T){
+    if(t<=T){
 
         command_posi = func_1_cos(t,start_posi, goal_posi,T);
 
@@ -1203,10 +1255,21 @@ else if(phase == 3){ //walk ready pose
         del_C = angleAxisToRotMat(del_a_axis);
 
         command_rot = start_rot*del_C;//goal_rot;//start_rot*del_C;
-        q_command = inverseKinematics(command_posi, command_rot, q0, 0.0001);
+        q_command = inverseKinematics(command_posi, command_rot, q0, 0.001);
         
         q0 = q_command;
 
+    }
+    else if(phase>=2 and t>T){
+        if(phase == 2){
+            phase++;
+        }
+        else if(phase == 3){
+            phase --;
+        }
+        start_posi = goal_posi;
+        start_rot = goal_rot;
+        t = 0.0;
     }
 
     t+=dt_ms;
@@ -1236,6 +1299,24 @@ else if(phase == 3){ //walk ready pose
     joint[LKN].targetRadian = q_command(3);//*D2R;
     joint[LAP].targetRadian = q_command(4);//*D2R;
     joint[LAR].targetRadian = q_command(5);//*D2R;
+
+
+    //* Publish topics
+    LHY_msg.data = q_command(0);
+    LHR_msg.data = q_command(1);
+    LHP_msg.data = q_command(2);
+    LKN_msg.data = q_command(3);
+    LAP_msg.data = q_command(4);
+    LAR_msg.data = q_command(5);
+
+    LHY_pub.publish(LHY_msg);
+    LHR_pub.publish(LHR_msg);
+    LHP_pub.publish(LHP_msg);
+    LKN_pub.publish(LKN_msg);
+    LAP_pub.publish(LAP_msg);
+    LAR_pub.publish(LAR_msg);
+    
+
 
 
   /*First motion Complete.*/
