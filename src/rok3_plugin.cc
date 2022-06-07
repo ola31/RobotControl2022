@@ -64,7 +64,7 @@ using namespace std;
 VectorXd q_cal2;
 
 
-double T = 5000.0;  //ms
+double T = 5.0;//5000.0;  //ms
 double t = T + 1.0;
 double dt_ms = 1.0; //ms
 int phase = 0;
@@ -1029,6 +1029,9 @@ void Practice(void){
 }
 
 double func_1_cos(double t, double init, double final, double T){
+
+    // t : current time
+    
     double des;
     des = (final - init)*0.5*(1.0 - cos(PI*(t/T))) + init;
     return des;
@@ -1118,7 +1121,7 @@ void gazebo::rok3_plugin::UpdateAlgorithm()
     dt = current_time.Double() - last_update_time.Double();
      //   cout << "dt:" << dt << endl;
     time = time + dt;
-  //      cout << "time:" << time << endl;
+        cout << "time:" << time << endl;
 
     //* setting for getting dt at next step
     last_update_time = current_time;
@@ -1127,178 +1130,207 @@ void gazebo::rok3_plugin::UpdateAlgorithm()
     //* Read Sensors data
     GetjointData();
 
-if(phase == 0 and time>5){
-    phase++;
-}
+    /* [0;0;0;0;0;0] -> [0;0;-63.756;127.512;-63.756] */
 
-if(phase == 0){
-    q_command<<0,0,0,0,0,0;
-}
-
-if(phase == 1){
-    //cout<<"phase 1"<<endl;
-    q_present(0) = 0.0;//joint[LHY].actualRadian;
-    q_present(1) = 0.0;//joint[LHR].actualRadian;
-    q_present(2) = 0.0;//joint[LHP].actualRadian;
-    q_present(3) = 0.0;//joint[LKN].actualRadian;
-    q_present(4) = 0.0;//joint[LAP].actualRadian;
-    q_present(5) = 0.0;//joint[LAR].actualRadian;
-
-    present_posi = jointToPosition(q_present);
-    present_rot = jointToRotMat(q_present);
-
-    start_posi = goal_posi  = present_posi;  //초기화
-    start_rot = goal_rot = present_rot;     //초기화
-
-    q_command = q_present;
-
-    q0 <<0, 0, -30, 60, -30, 0;
-    q0 = q0*D2R;
-
-    t = 0.0;
-
-    phase++;
-
-}
-
-
-else if(phase == 2){ //walk ready pose
-    //cout<<"phase 2"<<endl;
-    goal_posi<<0,0.105,-0.55;
-    goal_rot = EulerZyxToRotMat(0*D2R, 0*D2R, 0*D2R);
-  //  VectorXd q0(6);
-  /*
-  if(t>T){
-      
-      phase++;
-    
-      q_present(0) = joint[LHY].actualRadian;
-      q_present(1) = joint[LHR].actualRadian;
-      q_present(2) = joint[LHP].actualRadian;
-      q_present(3) = joint[LKN].actualRadian;
-      q_present(4) = joint[LAP].actualRadian;
-      q_present(5) = joint[LAR].actualRadian;
-          
-      present_posi = jointToPosition(q_present);
-      present_rot = jointToRotMat(q_present);
-    
-
-      start_posi = present_posi;
-      goal_posi = present_posi;
-
-      start_rot = present_rot;
-      goal_rot = present_rot;
-    
-      start_posi = goal_posi;
-      start_rot = goal_rot;
-      //goal_posi(2) -= 0.2;
-      t = 0.0;
-  }
-  */
-
-}
-
-else if(phase == 3){ //walk ready pose
-    //cout<<"phase 2"<<endl;
-   // goal_posi(2) -= 0.2;
-    goal_posi<<0,0.105,-0.65;
-    goal_rot = EulerZyxToRotMat(0, 45*D2R, 45*D2R);      
-  //  VectorXd q0(6);
-  /*
-    if(t>T){
-      
-      phase--;
-
-      
-      q_present(0) = joint[LHY].actualRadian;
-      q_present(1) = joint[LHR].actualRadian;
-      q_present(2) = joint[LHP].actualRadian;
-      q_present(3) = joint[LKN].actualRadian;
-      q_present(4) = joint[LAP].actualRadian;
-      q_present(5) = joint[LAR].actualRadian;
-      
-      present_posi = jointToPosition(q_present);
-      present_rot = jointToRotMat(q_present);
-
-      start_posi = present_posi;
-      goal_posi = present_posi;
-
-      start_rot = present_rot;
-      goal_rot = present_rot;
-      
-      start_posi = goal_posi;
-      start_rot = goal_rot;
-      //goal_posi(2) -= 0.2;
-      t = 0.0;
-  }
-  */
-
-
-}
-
-    MatrixXd C_err = goal_rot*start_rot.transpose();
-    AngleAxis a_axis = rotMatToAngleAxis(C_err);
-
-    AngleAxis del_a_axis = a_axis; //초기화
-    MatrixXd del_C;
-
-    command_rot = start_rot;
-
-
-
-    if(t<=T){
-
-        command_posi = func_1_cos(t,start_posi, goal_posi,T);
-
-        del_a_axis.th = func_1_cos(t, 0.0 , a_axis.th, T);
-
-        del_C = angleAxisToRotMat(del_a_axis);
-
-        command_rot = start_rot*del_C;//goal_rot;//start_rot*del_C;
-        q_command = inverseKinematics(command_posi, command_rot, q0, 0.001);
-        
-        q0 = q_command;
-
+    if(phase == 0 and time<T){
+        joint[LHY].targetRadian = func_1_cos(time,0,D2R*0,T);
+        joint[LHR].targetRadian = func_1_cos(time,0,D2R*0,T);
+        joint[LHP].targetRadian = func_1_cos(time,0,D2R*-63.756,T);
+        joint[LKN].targetRadian = func_1_cos(time,0,D2R*127.512,T);
+        joint[LAP].targetRadian = func_1_cos(time,0,D2R*-63.756,T);
+        joint[LAR].targetRadian = func_1_cos(time,0,D2R*0,T);
     }
-    else if(phase>=2 and t>T){
-        if(phase == 2){
-            phase++;
-        }
-        else if(phase == 3){
-            phase --;
-        }
-        start_posi = goal_posi;
-        start_rot = goal_rot;
-        t = 0.0;
+    else if(phase == 0){
+        phase ++;
+        time = 0;
+    }   
+    else if(phase == 1 and time<T){
+        joint[LHY].targetRadian = func_1_cos(time,0,D2R*0,T);
+        joint[LHR].targetRadian = func_1_cos(time,0,D2R*0,T);
+        joint[LHP].targetRadian = func_1_cos(time,D2R*-63.756,D2R*0,T);
+        joint[LKN].targetRadian = func_1_cos(time,D2R*127.512,D2R*0,T);
+        joint[LAP].targetRadian = func_1_cos(time,D2R*-63.756,D2R*0,T);
+        joint[LAR].targetRadian = func_1_cos(time,0,D2R*0,T);
+    }
+    else if(phase == 1){
+        phase --;
+        time = 0;
     }
 
-    t+=dt_ms;
 
-   static double max_yaw =0.0;
-
-
-   cout<<"==== Goal Position ===="<<endl;
-   cout<<goal_posi<<endl;
-   cout<<"===== q desired ====="<<endl;
-   cout<<q_command*R2D<<endl;
-   cout<<"====================="<<endl;
-   cout<< "Max Yaw : "<<max_yaw<<endl;
-   cout<<"dt : "<<dt<<endl;
-   cout<<"====================="<<endl;
-
-   if(abs(q_command(0)) > abs(max_yaw)){
-       max_yaw = q_command(0);
-   }
-
+//
+//if(phase == 0 and time>5){
+//    phase++;
+//}
+//
+//if(phase == 0){
+//    q_command<<0,0,0,0,0,0;
+//}
+//
+//if(phase == 1){
+//    //cout<<"phase 1"<<endl;
+//    q_present(0) = 0.0;//joint[LHY].actualRadian;
+//    q_present(1) = 0.0;//joint[LHR].actualRadian;
+//    q_present(2) = 0.0;//joint[LHP].actualRadian;
+//    q_present(3) = 0.0;//joint[LKN].actualRadian;
+//    q_present(4) = 0.0;//joint[LAP].actualRadian;
+//    q_present(5) = 0.0;//joint[LAR].actualRadian;
+//
+//    present_posi = jointToPosition(q_present);
+//    present_rot = jointToRotMat(q_present);
+//
+//    start_posi = goal_posi  = present_posi;  //초기화
+//    start_rot = goal_rot = present_rot;     //초기화
+//
+//    q_command = q_present;
+//
+//    q0 <<0, 0, -30, 60, -30, 0;
+//    q0 = q0*D2R;
+//
+//    t = 0.0;
+//
+//    phase++;
+//
+//}
+//
+//
+//else if(phase == 2){ //walk ready pose
+//    //cout<<"phase 2"<<endl;
+//    goal_posi<<0,0.105,-0.55;
+//    goal_rot = EulerZyxToRotMat(0*D2R, 0*D2R, 0*D2R);
+//  //  VectorXd q0(6);
+//  /*
+//  if(t>T){
+//      
+//      phase++;
+//    
+//      q_present(0) = joint[LHY].actualRadian;
+//      q_present(1) = joint[LHR].actualRadian;
+//      q_present(2) = joint[LHP].actualRadian;
+//      q_present(3) = joint[LKN].actualRadian;
+//      q_present(4) = joint[LAP].actualRadian;
+//      q_present(5) = joint[LAR].actualRadian;
+//          
+//      present_posi = jointToPosition(q_present);
+//      present_rot = jointToRotMat(q_present);
+//    
+//
+//      start_posi = present_posi;
+//      goal_posi = present_posi;
+//
+//      start_rot = present_rot;
+//      goal_rot = present_rot;
+//    
+//      start_posi = goal_posi;
+//      start_rot = goal_rot;
+//      //goal_posi(2) -= 0.2;
+//      t = 0.0;
+//  }
+//  */
+//
+//}
+//
+//else if(phase == 3){ //walk ready pose
+//    //cout<<"phase 2"<<endl;
+//   // goal_posi(2) -= 0.2;
+//    goal_posi<<0,0.105,-0.65;
+//    goal_rot = EulerZyxToRotMat(0, 0*D2R, 0*D2R);      
+//  //  VectorXd q0(6);
+//  /*
+//    if(t>T){
+//      
+//      phase--;
+//
+//      
+//      q_present(0) = joint[LHY].actualRadian;
+//      q_present(1) = joint[LHR].actualRadian;
+//      q_present(2) = joint[LHP].actualRadian;
+//      q_present(3) = joint[LKN].actualRadian;
+//      q_present(4) = joint[LAP].actualRadian;
+//      q_present(5) = joint[LAR].actualRadian;
+//      
+//      present_posi = jointToPosition(q_present);
+//      present_rot = jointToRotMat(q_present);
+//
+//      start_posi = present_posi;
+//      goal_posi = present_posi;
+//
+//      start_rot = present_rot;
+//      goal_rot = present_rot;
+//      
+//      start_posi = goal_posi;
+//      start_rot = goal_rot;
+//      //goal_posi(2) -= 0.2;
+//      t = 0.0;
+//  }
+//  */
+//
+//
+//}
+//
+//    MatrixXd C_err = goal_rot*start_rot.transpose();
+//    AngleAxis a_axis = rotMatToAngleAxis(C_err);
+//
+//    AngleAxis del_a_axis = a_axis; //초기화
+//    MatrixXd del_C;
+//
+//    command_rot = start_rot;
+//
+//
+//
+//    if(t<=T){
+//
+//        command_posi = func_1_cos(t,start_posi, goal_posi,T);
+//
+//        del_a_axis.th = func_1_cos(t, 0.0 , a_axis.th, T);
+//
+//        del_C = angleAxisToRotMat(del_a_axis);
+//
+//        command_rot = start_rot*del_C;//goal_rot;//start_rot*del_C;
+//        q_command = inverseKinematics(command_posi, command_rot, q0, 0.001);
+//        
+//        q0 = q_command;
+//
+//    }
+//    else if(phase>=2 and t>T){
+//        if(phase == 2){
+//            phase++;
+//        }
+//        else if(phase == 3){
+//            phase --;
+//        }
+//        start_posi = goal_posi;
+//        start_rot = goal_rot;
+//        t = 0.0;
+//    }
+//
+//    t+=dt_ms;
+//
+//   static double max_yaw =0.0;
+//
+//
+//   cout<<"==== Goal Position ===="<<endl;
+//   cout<<goal_posi<<endl;
+//   cout<<"===== q desired ====="<<endl;
+//   cout<<q_command*R2D<<endl;
+//   cout<<"====================="<<endl;
+//   cout<< "Max Yaw : "<<max_yaw<<endl;
+//   cout<<"dt : "<<dt<<endl;
+//   cout<<"====================="<<endl;
+//
+//   if(abs(q_command(0)) > abs(max_yaw)){
+//       max_yaw = q_command(0);
+//   }
+//
     
     //* Target Angles
 
-    joint[LHY].targetRadian = q_command(0);//*D2R;
-    joint[LHR].targetRadian = q_command(1);//*D2R;
-    joint[LHP].targetRadian = q_command(2);//*D2R;
-    joint[LKN].targetRadian = q_command(3);//*D2R;
-    joint[LAP].targetRadian = q_command(4);//*D2R;
-    joint[LAR].targetRadian = q_command(5);//*D2R;
+  //  joint[LHY].targetRadian = q_command(0);//*D2R;
+  //  joint[LHR].targetRadian = q_command(1);//*D2R;
+  //  joint[LHP].targetRadian = q_command(2);//*D2R;
+  //  joint[LKN].targetRadian = q_command(3);//*D2R;
+  //  joint[LAP].targetRadian = q_command(4);//*D2R;
+  //  joint[LAR].targetRadian = q_command(5);//*D2R;
 
 
     //* Publish topics
