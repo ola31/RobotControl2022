@@ -19,6 +19,10 @@
 
 #include <time.h>
 
+#define X_ 0
+#define Y_ 1
+#define Z_ 2
+
 //* Header file for Gazebo and Ros
 #include <gazebo/gazebo.hh>
 #include <ros/ros.h>
@@ -61,10 +65,17 @@ using namespace RigidBodyDynamics::Math;
 
 using namespace std;
 
+
+typedef struct _AngleAxis{
+    Vector3d n;
+    double th;
+} AngleAxis;
+
+
 VectorXd q_cal2;
 
 
-double T = 5.0;//5000.0;  //ms
+double T = 5; //sec
 double t = T + 1.0;
 double dt_ms = 1.0; //ms
 int phase = 0;
@@ -74,6 +85,7 @@ static struct timespec ik_end_time;
 
 Vector3d goal_posi;
 Vector3d start_posi;
+VectorXd start_posi_;
 Vector3d command_posi;
 Vector3d present_posi;
 
@@ -87,11 +99,10 @@ VectorXd q_command(6);
 
 VectorXd q0(6);
 
+MatrixXd C_err; 
+AngleAxis a_axis;
 
-typedef struct _AngleAxis{
-    Vector3d n;
-    double th;
-} AngleAxis;
+
 
 namespace gazebo
 {
@@ -1025,9 +1036,10 @@ void Practice(void){
 
 
     //practice 5 was completed
-    
-}
 
+  //q0 <<0, 0, -30, 60, -30, 0;
+  // q0 = q0*D2R; 
+}
 double func_1_cos(double t, double init, double final, double T){
 
     // t : current time
@@ -1130,8 +1142,10 @@ void gazebo::rok3_plugin::UpdateAlgorithm()
     //* Read Sensors data
     GetjointData();
 
-    /* [0;0;0;0;0;0] -> [0;0;-63.756;127.512;-63.756] */
 
+//Practice 6-0
+    /* [0;0;0;0;0;0] -> [0;0;-63.756;127.512;-63.756] */
+/*
     if(phase == 0 and time<T){
         joint[LHY].targetRadian = func_1_cos(time,0,D2R*0,T);
         joint[LHR].targetRadian = func_1_cos(time,0,D2R*0,T);
@@ -1156,181 +1170,190 @@ void gazebo::rok3_plugin::UpdateAlgorithm()
         phase --;
         time = 0;
     }
+*/
+
+//Practice 6-1
+
+//
+//VectorXd q_zero(6);
+//q_zero<<0,0,0,0,0,0;
+//
+//
+//start_posi = jointToPosition(q_zero);
+//goal_posi<<0,0.105,-0.55;
+//command_rot<<1,0,0,\
+//             0,1,0,\
+//             0,0,1;
+//
+//if(time<T){
+//    command_posi = func_1_cos(time,start_posi, goal_posi, T);
+//    q_command = inverseKinematics(command_posi,command_rot,,0.001);
+//    q0 = q_command;
+//    joint[LHY].targetRadian = q_command(0);
+//    joint[LHR].targetRadian = q_command(1);
+//    joint[LHP].targetRadian = q_command(2);
+//    joint[LKN].targetRadian = q_command(3);
+//    joint[LAP].targetRadian = q_command(4);
+//    joint[LAR].targetRadian = q_command(5);
+//}
+//
+//
 
 
-//
-//if(phase == 0 and time>5){
-//    phase++;
-//}
-//
-//if(phase == 0){
-//    q_command<<0,0,0,0,0,0;
-//}
-//
-//if(phase == 1){
-//    //cout<<"phase 1"<<endl;
-//    q_present(0) = 0.0;//joint[LHY].actualRadian;
-//    q_present(1) = 0.0;//joint[LHR].actualRadian;
-//    q_present(2) = 0.0;//joint[LHP].actualRadian;
-//    q_present(3) = 0.0;//joint[LKN].actualRadian;
-//    q_present(4) = 0.0;//joint[LAP].actualRadian;
-//    q_present(5) = 0.0;//joint[LAR].actualRadian;
-//
-//    present_posi = jointToPosition(q_present);
-//    present_rot = jointToRotMat(q_present);
-//
-//    start_posi = goal_posi  = present_posi;  //초기화
-//    start_rot = goal_rot = present_rot;     //초기화
-//
-//    q_command = q_present;
-//
-//    q0 <<0, 0, -30, 60, -30, 0;
-//    q0 = q0*D2R;
-//
-//    t = 0.0;
-//
-//    phase++;
-//
-//}
-//
-//
-//else if(phase == 2){ //walk ready pose
-//    //cout<<"phase 2"<<endl;
-//    goal_posi<<0,0.105,-0.55;
-//    goal_rot = EulerZyxToRotMat(0*D2R, 0*D2R, 0*D2R);
-//  //  VectorXd q0(6);
-//  /*
-//  if(t>T){
-//      
-//      phase++;
-//    
-//      q_present(0) = joint[LHY].actualRadian;
-//      q_present(1) = joint[LHR].actualRadian;
-//      q_present(2) = joint[LHP].actualRadian;
-//      q_present(3) = joint[LKN].actualRadian;
-//      q_present(4) = joint[LAP].actualRadian;
-//      q_present(5) = joint[LAR].actualRadian;
-//          
-//      present_posi = jointToPosition(q_present);
-//      present_rot = jointToRotMat(q_present);
-//    
-//
-//      start_posi = present_posi;
-//      goal_posi = present_posi;
-//
-//      start_rot = present_rot;
-//      goal_rot = present_rot;
-//    
-//      start_posi = goal_posi;
-//      start_rot = goal_rot;
-//      //goal_posi(2) -= 0.2;
-//      t = 0.0;
-//  }
-//  */
-//
-//}
-//
-//else if(phase == 3){ //walk ready pose
-//    //cout<<"phase 2"<<endl;
-//   // goal_posi(2) -= 0.2;
-//    goal_posi<<0,0.105,-0.65;
-//    goal_rot = EulerZyxToRotMat(0, 0*D2R, 0*D2R);      
-//  //  VectorXd q0(6);
-//  /*
-//    if(t>T){
-//      
-//      phase--;
-//
-//      
-//      q_present(0) = joint[LHY].actualRadian;
-//      q_present(1) = joint[LHR].actualRadian;
-//      q_present(2) = joint[LHP].actualRadian;
-//      q_present(3) = joint[LKN].actualRadian;
-//      q_present(4) = joint[LAP].actualRadian;
-//      q_present(5) = joint[LAR].actualRadian;
-//      
-//      present_posi = jointToPosition(q_present);
-//      present_rot = jointToRotMat(q_present);
-//
-//      start_posi = present_posi;
-//      goal_posi = present_posi;
-//
-//      start_rot = present_rot;
-//      goal_rot = present_rot;
-//      
-//      start_posi = goal_posi;
-//      start_rot = goal_rot;
-//      //goal_posi(2) -= 0.2;
-//      t = 0.0;
-//  }
-//  */
-//
-//
-//}
-//
-//    MatrixXd C_err = goal_rot*start_rot.transpose();
-//    AngleAxis a_axis = rotMatToAngleAxis(C_err);
-//
-//    AngleAxis del_a_axis = a_axis; //초기화
-//    MatrixXd del_C;
-//
-//    command_rot = start_rot;
-//
-//
-//
-//    if(t<=T){
-//
-//        command_posi = func_1_cos(t,start_posi, goal_posi,T);
-//
-//        del_a_axis.th = func_1_cos(t, 0.0 , a_axis.th, T);
-//
-//        del_C = angleAxisToRotMat(del_a_axis);
-//
-//        command_rot = start_rot*del_C;//goal_rot;//start_rot*del_C;
-//        q_command = inverseKinematics(command_posi, command_rot, q0, 0.001);
-//        
-//        q0 = q_command;
-//
-//    }
-//    else if(phase>=2 and t>T){
-//        if(phase == 2){
-//            phase++;
-//        }
-//        else if(phase == 3){
-//            phase --;
-//        }
-//        start_posi = goal_posi;
-//        start_rot = goal_rot;
-//        t = 0.0;
-//    }
-//
-//    t+=dt_ms;
-//
-//   static double max_yaw =0.0;
-//
-//
-//   cout<<"==== Goal Position ===="<<endl;
-//   cout<<goal_posi<<endl;
-//   cout<<"===== q desired ====="<<endl;
-//   cout<<q_command*R2D<<endl;
-//   cout<<"====================="<<endl;
-//   cout<< "Max Yaw : "<<max_yaw<<endl;
-//   cout<<"dt : "<<dt<<endl;
-//   cout<<"====================="<<endl;
-//
-//   if(abs(q_command(0)) > abs(max_yaw)){
-//       max_yaw = q_command(0);
-//   }
-//
+
+
+
+if(phase == 0 and time>1){
+    phase++;
+    time = 0;
+}
+if(phase == 0){
+    q_present<<0,0,0,0,0,0;
+    q0 <<0, 0, -30, 60, -30, 0;
+    q0 = q0*D2R;
+}
+
+/*
+
+if(phase == 1){
+    //cout<<"phase 1"<<endl;
+    q_present(0) = 0.0; //joint[LHY].actualRadian;
+    q_present(1) = 0.0; //joint[LHR].actualRadian;
+    q_present(2) = 0.0; //joint[LHP].actualRadian;
+    q_present(3) = 0.0; //joint[LKN].actualRadian;
+    q_present(4) = 0.0; //joint[LAP].actualRadian;
+    q_present(5) = 0.0; //joint[LAR].actualRadian;
+
+    present_posi = jointToPosition(q_present);
+    present_rot = jointToRotMat(q_present);
+
+    start_posi = goal_posi  = present_posi;  //초기화
+    start_rot = goal_rot = present_rot;     //초기화
+
+    q_command = q_present;
+
+    q0 <<0, 0, -30, 60, -30, 0;
+    q0 = q0*D2R;
+
+    t = 0.0;
+
+    phase++;
+
+}
+*/
+else if(phase == 1){
+    q_command(0) = func_1_cos(time,0,D2R*0,T);
+    q_command(1) = func_1_cos(time,0,D2R*0,T);
+    q_command(2) = func_1_cos(time,0,D2R*-63.756,T);
+    q_command(3) = func_1_cos(time,0,D2R*127.512,T);
+    q_command(4) = func_1_cos(time,0,D2R*-63.756,T);
+    q_command(5) = func_1_cos(time,0,D2R*0,T);    
+    if(time>T){
+        phase ++;
+        time = 0;
+        present_posi = jointToPosition(q_command);
+        present_rot = jointToRotMat(q_command);
+        start_posi = goal_posi = present_posi;
+        start_rot = goal_rot = present_rot;
+
+        goal_posi(Z_) -= 0.2;
+        goal_rot = EulerZyxToRotMat(0*D2R, 0*D2R, 0*D2R);
+
+
+        C_err = goal_rot*start_rot.transpose();
+        a_axis = rotMatToAngleAxis(C_err);
+
+    }
+}
+
+
+else if(phase == 2){ //walk ready pose
+    //cout<<"phase 2"<<endl;
+    //goal_posi<<0,0.105,-0.55;
+    //goal_rot = EulerZyxToRotMat(0*D2R, 0*D2R, 40*D2R);
+
+}
+
+else if(phase == 3){ //walk ready pose
+    //cout<<"phase 2"<<endl;
+   // goal_posi(2) -= 0.2;
+    //goal_posi<<0,0.105,-0.55;
+    //goal_rot = EulerZyxToRotMat(0, 40*D2R, 0*D2R);     
+
+}
+
+   // C_err = goal_rot*start_rot.transpose();
+   // a_axis = rotMatToAngleAxis(C_err);
+
+    AngleAxis del_a_axis = a_axis; //초기화
+    MatrixXd del_C;
+
+    command_rot = start_rot;
+
+    //EigenXd 
+
+    if(phase >= 2 and time <=T){
+        command_posi = func_1_cos(time,start_posi, goal_posi,T);
+        del_a_axis.th = func_1_cos(time, 0.0 , a_axis.th, T);
+        del_C = angleAxisToRotMat(del_a_axis);
+        command_rot = start_rot*del_C;//goal_rot;//start_rot*del_C;
+        q_command = inverseKinematics(command_posi, command_rot, q0, 0.001);       
+        q0 = q_command;
+
+    }
+    else if(phase>=2 and time>T){
+        if(phase == 2){ 
+            //phase++;
+            start_posi = goal_posi;
+            start_rot = goal_rot;
+            //goal_posi<<0,0.105,-0.55;
+            //goal_posi(Z_) -= 0.2;
+            goal_rot = EulerZyxToRotMat(90*D2R, 0*D2R, 0*D2R);
+            C_err = goal_rot*start_rot.transpose();
+            a_axis = rotMatToAngleAxis(C_err);
+        }
+        else if(phase == 3){
+            phase --;
+            start_posi = goal_posi;
+            start_rot = goal_rot;
+            //goal_posi<<0,0.105,-0.55;
+            goal_rot = EulerZyxToRotMat(0, 0*D2R, 90*D2R);
+            C_err = goal_rot*start_rot.transpose();
+            a_axis = rotMatToAngleAxis(C_err);
+        }
+        //start_posi = goal_posi;
+        //start_rot = goal_rot;
+        time = 0.0;
+    }
+
+    //t+=dt_ms;
+
+   static double max_yaw =0.0;
+
+   cout<<"===== Phase ====="<<endl;
+   cout<<phase<<endl;
+   cout<<"==== Goal Position ===="<<endl;
+   cout<<goal_posi<<endl;
+   cout<<"===== q desired ====="<<endl;
+   cout<<q_command*R2D<<endl;
+   cout<<"====================="<<endl;
+   cout<< "Max Yaw : "<<max_yaw<<endl;
+   cout<<"dt : "<<dt<<endl;
+   cout<<"====================="<<endl;
+
+   if(abs(q_command(0)) > abs(max_yaw)){
+       max_yaw = q_command(0);
+   }
+
     
     //* Target Angles
 
-  //  joint[LHY].targetRadian = q_command(0);//*D2R;
-  //  joint[LHR].targetRadian = q_command(1);//*D2R;
-  //  joint[LHP].targetRadian = q_command(2);//*D2R;
-  //  joint[LKN].targetRadian = q_command(3);//*D2R;
-  //  joint[LAP].targetRadian = q_command(4);//*D2R;
-  //  joint[LAR].targetRadian = q_command(5);//*D2R;
+    joint[LHY].targetRadian = q_command(0);//*D2R;
+    joint[LHR].targetRadian = q_command(1);//*D2R;
+    joint[LHP].targetRadian = q_command(2);//*D2R;
+    joint[LKN].targetRadian = q_command(3);//*D2R;
+    joint[LAP].targetRadian = q_command(4);//*D2R;
+    joint[LAR].targetRadian = q_command(5);//*D2R;
 
 
     //* Publish topics
