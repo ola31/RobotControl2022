@@ -1672,32 +1672,12 @@ void gazebo::rok3_plugin::UpdateAlgorithm()
             start_rot_L = goal_rot_L;
             //goal_posi<<0,0.105,-0.55;
             goal_posi_L(Z_) += 0.2;
+            goal_posi_L(X_) += 0.5*fb_step;
             goal_rot_L = EulerZyxToRotMat(0, 0*D2R, 0*D2R);
             C_err_L = goal_rot_L*start_rot_L.transpose();
             a_axis_L = rotMatToAngleAxis(C_err_L);
         }
-        else if(phase == 4){  //3->4 left foot foward move
-            phase ++;
-
-            //RIGHT_LEG
-            start_posi_R = goal_posi_R;
-            start_rot_R = goal_rot_R;
-
-            //goal_posi_R(Z_) -= 0.2;
-            goal_rot_R = EulerZyxToRotMat(0, 0*D2R, 0*D2R);
-            C_err_R = goal_rot_R*start_rot_R.transpose();
-            a_axis_R = rotMatToAngleAxis(C_err_R);
-
-            //LEFT_LEG
-            start_posi_L = goal_posi_L;
-            start_rot_L = goal_rot_L;
-            //goal_posi<<0,0.105,-0.55;
-            goal_posi_L(X_) += fb_step;
-            goal_rot_L = EulerZyxToRotMat(0, 0*D2R, 0*D2R);
-            C_err_L = goal_rot_L*start_rot_L.transpose();
-            a_axis_L = rotMatToAngleAxis(C_err_L);
-        }
-        else if(phase == 5){  //5->6 left foot down
+        else if(phase == 4){  //4->5 left foot down
             phase ++;
 
             //RIGHT_LEG
@@ -1712,18 +1692,19 @@ void gazebo::rok3_plugin::UpdateAlgorithm()
             start_posi_L = goal_posi_L;
             start_rot_L = goal_rot_L;
             goal_posi_L(Z_) -= 0.2;
+            goal_posi_L(X_) += 0.5*fb_step;
             goal_rot_L = EulerZyxToRotMat(0, 0*D2R, 0*D2R);
             C_err_L = goal_rot_L*start_rot_L.transpose();
             a_axis_L = rotMatToAngleAxis(C_err_L);
         }
-        else if(phase == 6){
+        else if(phase == 5){
             phase ++;
 
             //RIGHT_LEG
             start_posi_R = goal_posi_R;
             start_rot_R = goal_rot_R;
-            goal_posi_R(Y_) -= (0.105+0.035);
-            goal_posi_R(X_) -= 0.5*fb_step;
+            goal_posi_R(Y_) -= 2*(0.105+0.035);
+            goal_posi_R(X_) -= fb_step;
             goal_rot_R = EulerZyxToRotMat(0, 0*D2R, 0*D2R);
             C_err_R = goal_rot_R*start_rot_R.transpose();
             a_axis_R = rotMatToAngleAxis(C_err_R);
@@ -1732,33 +1713,13 @@ void gazebo::rok3_plugin::UpdateAlgorithm()
             start_posi_L = goal_posi_L;
             start_rot_L = goal_rot_L;
 
-            goal_posi_L(Y_) -= (0.105+0.035);
-            goal_posi_L(X_) -= 0.5*fb_step;
+            goal_posi_L(Y_) -= 2*(0.105+0.035);
+            goal_posi_L(X_) -= fb_step;
             goal_rot_L = EulerZyxToRotMat(0, 0*D2R, 0*D2R);
             C_err_L = goal_rot_L*start_rot_L.transpose();
             a_axis_L = rotMatToAngleAxis(C_err_L);
         }
-        else if(phase == 7){
-            phase ++;
-
-            //RIGHT_LEG
-            start_posi_R = goal_posi_R;
-            start_rot_R = goal_rot_R;
-            goal_posi_R(Y_) -= (0.105+0.035);
-            goal_rot_R = EulerZyxToRotMat(0, 0*D2R, 0*D2R);
-            C_err_R = goal_rot_R*start_rot_R.transpose();
-            a_axis_R = rotMatToAngleAxis(C_err_R);
-
-            //LEFT_LEG
-            start_posi_L = goal_posi_L;
-            start_rot_L = goal_rot_L;
-
-            goal_posi_L(Y_) -= (0.105+0.035);
-            goal_rot_L = EulerZyxToRotMat(0, 0*D2R, 0*D2R);
-            C_err_L = goal_rot_L*start_rot_L.transpose();
-            a_axis_L = rotMatToAngleAxis(C_err_L);
-        }
-        else if(phase == 8){  // 8->9 right foot up
+        else if(phase == 6){  // 6->7 right foot up
             phase ++;
 
             //RIGHT_LEG
@@ -1766,6 +1727,7 @@ void gazebo::rok3_plugin::UpdateAlgorithm()
             start_rot_R = goal_rot_R;
 
             goal_posi_R(Z_) += 0.2;
+            goal_posi_R(X_) += 0.5*fb_step;
 
             goal_rot_R = EulerZyxToRotMat(0, 0*D2R, 0*D2R);
             C_err_R = goal_rot_R*start_rot_R.transpose();
@@ -1779,28 +1741,7 @@ void gazebo::rok3_plugin::UpdateAlgorithm()
             C_err_L = goal_rot_L*start_rot_L.transpose();
             a_axis_L = rotMatToAngleAxis(C_err_L);
         }
-        else if(phase == 9){  // 9->10 right foot move foward
-            phase ++;
-
-            //RIGHT_LEG
-            start_posi_R = goal_posi_R;
-            start_rot_R = goal_rot_R;
-
-            goal_posi_R(X_) += fb_step;
-
-            goal_rot_R = EulerZyxToRotMat(0, 0*D2R, 0*D2R);
-            C_err_R = goal_rot_R*start_rot_R.transpose();
-            a_axis_R = rotMatToAngleAxis(C_err_R);
-
-            //LEFT_LEG
-            start_posi_L = goal_posi_L;
-            start_rot_L = goal_rot_L;
-
-            goal_rot_L = EulerZyxToRotMat(0, 0*D2R, 0*D2R);
-            C_err_L = goal_rot_L*start_rot_L.transpose();
-            a_axis_L = rotMatToAngleAxis(C_err_L);
-        }
-        else if(phase == 10){  // 10->11 right foot down
+        else if(phase == 7){  // 7->8 right foot down
             phase ++;
 
             //RIGHT_LEG
@@ -1808,6 +1749,7 @@ void gazebo::rok3_plugin::UpdateAlgorithm()
             start_rot_R = goal_rot_R;
 
             goal_posi_R(Z_) -= 0.2;
+            goal_posi_R(X_) += 0.5*fb_step;
 
             goal_rot_R = EulerZyxToRotMat(0, 0*D2R, 0*D2R);
             C_err_R = goal_rot_R*start_rot_R.transpose();
@@ -1821,7 +1763,7 @@ void gazebo::rok3_plugin::UpdateAlgorithm()
             C_err_L = goal_rot_L*start_rot_L.transpose();
             a_axis_L = rotMatToAngleAxis(C_err_L);
         }
-        else if(phase == 11){  
+        else if(phase == 8){  
             phase = 2;
 
             //RIGHT_LEG
@@ -1829,7 +1771,6 @@ void gazebo::rok3_plugin::UpdateAlgorithm()
             start_rot_R = goal_rot_R;
 
             goal_posi_R(Y_) += (0.105+0.035);
-            goal_posi_R(X_) -= 0.5*fb_step;
 
             goal_rot_R = EulerZyxToRotMat(0*D2R, 0*D2R, 0*D2R);
             C_err_R = goal_rot_R*start_rot_R.transpose();
@@ -1840,7 +1781,6 @@ void gazebo::rok3_plugin::UpdateAlgorithm()
             start_rot_L = goal_rot_L;
 
             goal_posi_L(Y_) += (0.105+0.035);
-            goal_posi_L(X_) -= 0.5*fb_step;
 
             goal_rot_L = EulerZyxToRotMat(0*D2R, 0*D2R, 0*D2R);
             C_err_L = goal_rot_L*start_rot_L.transpose();
