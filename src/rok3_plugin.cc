@@ -65,24 +65,28 @@ using namespace RigidBodyDynamics::Math;
 
 using namespace std;
 
-
+//* Angle Axis Struct ****
 typedef struct _AngleAxis{
     Vector3d n;
     double th;
-} AngleAxis;
+} AngleAxis; 
 
 
-VectorXd q_cal2;
+VectorXd q_cal2; //not using
 
-
-double T = 3; //sec
+//* Time Variables ****
+double T = 3;        //sec
 double t = T + 1.0;
-double dt_ms = 1.0; //ms
+double dt_ms = 1.0;  //ms
+
+//* Phase Step ****
 int phase = 0;
 
+//* to check ik computing time
 static struct timespec ik_start_time;
 static struct timespec ik_end_time;
 
+//* Position ****
 Vector3d goal_posi_L;
 Vector3d start_posi_L;
 Vector3d command_posi_L;
@@ -93,31 +97,41 @@ Vector3d start_posi_R;
 Vector3d command_posi_R;
 Vector3d present_posi_R;
 
+//* Rotation ****
 MatrixXd goal_rot_L(3,3);
 MatrixXd start_rot_L(3,3);
 MatrixXd present_rot_L(3,3);
 MatrixXd command_rot_L(3,3);
-
-VectorXd q_present_L(6);
-VectorXd q_command_L(6);
 
 MatrixXd goal_rot_R(3,3);
 MatrixXd start_rot_R(3,3);
 MatrixXd present_rot_R(3,3);
 MatrixXd command_rot_R(3,3);
 
+//* Joint Angle ****
+VectorXd q_present_L(6);
+VectorXd q_command_L(6);
+
 VectorXd q_present_R(6);
 VectorXd q_command_R(6);
 
-
+//* Initial guess joint (IK) ****
 VectorXd q0_L(6);
 VectorXd q0_R(6);
 
+
+//* etc ****
 MatrixXd C_err_L; 
 AngleAxis a_axis_L;
 
 MatrixXd C_err_R; 
 AngleAxis a_axis_R;
+
+//* step
+double fb_step = 0.2; //[m]
+double rl_turn = 30;  //[deg]
+
+double foot_distance = 0.105;  //distance from center
 
 
 
@@ -371,11 +385,10 @@ MatrixXd getTransformI0(){
     
    MatrixXd tmp_m(4,4);
     
-    
    tmp_m<<1,0,0,0,\
-         0,1,0,0,\
-         0,0,1,0,\
-         0,0,0,1;
+          0,1,0,0,\
+          0,0,1,0,\
+          0,0,0,1;
    
    //tmp_m(0,0) = 1; tmp_m(0,1) = 0; tmp_m(0,2) = 0; tmp_m(0,3) = 0;
    //tmp_m(0,0) = 1; tmp_m(0,1) = 0; tmp_m(0,2) = 0; tmp_m(0,3) = 0;
@@ -391,13 +404,12 @@ MatrixXd getTransform6E(){
     MatrixXd tmp_m(4,4);
     int L3 = 1; //m
     
-   tmp_m<<   1,    0,   0,   0,\
-             0,    1,   0,   0,\
-             0,    0,   1,  -0.09,\
-             0,    0,   0,   1;   
+    tmp_m<< 1,   0,   0,   0,\
+            0,   1,   0,   0,\
+            0,   0,   1,  -0.09,\
+            0,   0,   0,   1;   
     
    return tmp_m; 
-    
 }
 
 MatrixXd jointToTransform01(VectorXd q){
@@ -415,8 +427,7 @@ MatrixXd jointToTransform01(VectorXd q){
            sq,  cq,  0,  0.105,\
             0,   0,  1, -0.1512,\
             0,   0,  0,  1;   
-    
-    
+
     return tmp_m;
 }
 
@@ -435,7 +446,6 @@ MatrixXd jointToTransform01_R(VectorXd q){
            sq,  cq,  0, -0.105,\
             0,   0,  1, -0.1512,\
             0,   0,  0,  1;   
-    
     
     return tmp_m;
 }
@@ -456,7 +466,6 @@ MatrixXd jointToTransform12(VectorXd q){
            0, sq,  cq, 0,\
            0,  0,   0, 1;   
     
-    
     return tmp_m;
 }
 
@@ -475,7 +484,6 @@ MatrixXd jointToTransform23(VectorXd q){
             0,  1,   0, 0,\
           -sq,  0,  cq, 0,\
             0,  0,   0, 1;   
-    
     
     return tmp_m;
 }
@@ -550,9 +558,7 @@ VectorXd jointToPosition_L(VectorXd q){
     TIE = TI0*T01*T12*T23*T34*T45*T56*T6E;
     
     Vector3d position;
-    //position(0) = TIE(3,0);
-   // position(1) = TIE(3,1);  
-    //position(2) = TIE(3,2);
+
     position = TIE.block(0,3,3,1);
     
     return position;
@@ -571,9 +577,7 @@ VectorXd jointToPosition_R(VectorXd q){
     TIE = TI0*T01*T12*T23*T34*T45*T56*T6E;
     
     Vector3d position;
-    //position(0) = TIE(3,0);
-   // position(1) = TIE(3,1);  
-    //position(2) = TIE(3,2);
+
     position = TIE.block(0,3,3,1);
     
     return position;
@@ -1059,7 +1063,6 @@ MatrixXd EulerZyxToRotMat(double z_rot, double y_rot, double x_rot){
              0,  sx ,cx  ;
              
     return Z_rot*Y_rot*X_rot;
-    //return X_rot*Y_rot*Z_rot;
 
 }
 
@@ -1448,169 +1451,154 @@ void gazebo::rok3_plugin::UpdateAlgorithm()
     GetjointData();
 
 
-//Practice 6-0
-    /* [0;0;0;0;0;0] -> [0;0;-63.756;127.512;-63.756] */
-/*
-    if(phase == 0 and time<T){
-        joint[LHY].targetRadian = func_1_cos(time,0,D2R*0,T);
-        joint[LHR].targetRadian = func_1_cos(time,0,D2R*0,T);
-        joint[LHP].targetRadian = func_1_cos(time,0,D2R*-63.756,T);
-        joint[LKN].targetRadian = func_1_cos(time,0,D2R*127.512,T);
-        joint[LAP].targetRadian = func_1_cos(time,0,D2R*-63.756,T);
-        joint[LAR].targetRadian = func_1_cos(time,0,D2R*0,T);
-    }
-    else if(phase == 0){
-        phase ++;
+    //Practice 6-0
+        /* [0;0;0;0;0;0] -> [0;0;-63.756;127.512;-63.756] */
+    /*
+        if(phase == 0 and time<T){
+            joint[LHY].targetRadian = func_1_cos(time,0,D2R*0,T);
+            joint[LHR].targetRadian = func_1_cos(time,0,D2R*0,T);
+            joint[LHP].targetRadian = func_1_cos(time,0,D2R*-63.756,T);
+            joint[LKN].targetRadian = func_1_cos(time,0,D2R*127.512,T);
+            joint[LAP].targetRadian = func_1_cos(time,0,D2R*-63.756,T);
+            joint[LAR].targetRadian = func_1_cos(time,0,D2R*0,T);
+        }
+        else if(phase == 0){
+            phase ++;
+            time = 0;
+        }   
+        else if(phase == 1 and time<T){
+            joint[LHY].targetRadian = func_1_cos(time,0,D2R*0,T);
+            joint[LHR].targetRadian = func_1_cos(time,0,D2R*0,T);
+            joint[LHP].targetRadian = func_1_cos(time,D2R*-63.756,D2R*0,T);
+            joint[LKN].targetRadian = func_1_cos(time,D2R*127.512,D2R*0,T);
+            joint[LAP].targetRadian = func_1_cos(time,D2R*-63.756,D2R*0,T);
+            joint[LAR].targetRadian = func_1_cos(time,0,D2R*0,T);
+        }
+        else if(phase == 1){
+            phase --;
+            time = 0;
+        }
+    */
+    
+    //Practice 6-1
+    
+    //
+    //VectorXd q_zero(6);
+    //q_zero<<0,0,0,0,0,0;
+    //
+    //
+    //start_posi = jointToPosition(q_zero);
+    //goal_posi<<0,0.105,-0.55;
+    //command_rot<<1,0,0,\
+    //             0,1,0,\
+    //             0,0,1;
+    //
+    //if(time<T){
+    //    command_posi = func_1_cos(time,start_posi, goal_posi, T);
+    //    q_command = inverseKinematics(command_posi,command_rot,,0.001);
+    //    q0 = q_command;
+    //    joint[LHY].targetRadian = q_command(0);
+    //    joint[LHR].targetRadian = q_command(1);
+    //    joint[LHP].targetRadian = q_command(2);
+    //    joint[LKN].targetRadian = q_command(3);
+    //    joint[LAP].targetRadian = q_command(4);
+    //    joint[LAR].targetRadian = q_command(5);
+    //}
+    //
+    //
+    
+     
+
+
+
+    if(phase == 0 and time>2){
+        phase++;
         time = 0;
-    }   
-    else if(phase == 1 and time<T){
-        joint[LHY].targetRadian = func_1_cos(time,0,D2R*0,T);
-        joint[LHR].targetRadian = func_1_cos(time,0,D2R*0,T);
-        joint[LHP].targetRadian = func_1_cos(time,D2R*-63.756,D2R*0,T);
-        joint[LKN].targetRadian = func_1_cos(time,D2R*127.512,D2R*0,T);
-        joint[LAP].targetRadian = func_1_cos(time,D2R*-63.756,D2R*0,T);
-        joint[LAR].targetRadian = func_1_cos(time,0,D2R*0,T);
     }
+    if(phase == 0){
+        q_command_R<<0,0,0,0,0,0;
+        q_command_L<<0,0,0,0,0,0;
+        q_present_R<<0,0,0,0,0,0;
+        q_present_L<<0,0,0,0,0,0;
+        q0_R <<0, 0, -30, 60, -30, 0;
+        q0_L <<0, 0, -30, 60, -30, 0;
+        q0_R = q0_R*D2R;
+        q0_L = q0_L*D2R;
+    }
+    
+    /*
+    
+    if(phase == 1){
+        //cout<<"phase 1"<<endl;
+        q_present(0) = 0.0; //joint[LHY].actualRadian;
+        q_present(1) = 0.0; //joint[LHR].actualRadian;
+        q_present(2) = 0.0; //joint[LHP].actualRadian;
+        q_present(3) = 0.0; //joint[LKN].actualRadian;
+        q_present(4) = 0.0; //joint[LAP].actualRadian;
+        q_present(5) = 0.0; //joint[LAR].actualRadian;
+    
+        present_posi = jointToPosition(q_present);
+        present_rot = jointToRotMat(q_present);
+    
+        start_posi = goal_posi  = present_posi;  //초기화
+        start_rot = goal_rot = present_rot;     //초기화
+    
+        q_command = q_present;
+    
+        q0 <<0, 0, -30, 60, -30, 0;
+        q0 = q0*D2R;
+    
+        t = 0.0;
+    
+        phase++;
+    
+    }
+    */
     else if(phase == 1){
-        phase --;
-        time = 0;
+        q_command_R(0) = func_1_cos(time,0,D2R*0,T);
+        q_command_R(1) = func_1_cos(time,0,D2R*0,T);
+        q_command_R(2) = func_1_cos(time,0,D2R*-63.756,T);
+        q_command_R(3) = func_1_cos(time,0,D2R*127.512,T);
+        q_command_R(4) = func_1_cos(time,0,D2R*-63.756,T);
+        q_command_R(5) = func_1_cos(time,0,D2R*0,T);    
+    
+        q_command_L(0) = func_1_cos(time,0,D2R*0,T);
+        q_command_L(1) = func_1_cos(time,0,D2R*0,T);
+        q_command_L(2) = func_1_cos(time,0,D2R*-63.756,T);
+        q_command_L(3) = func_1_cos(time,0,D2R*127.512,T);
+        q_command_L(4) = func_1_cos(time,0,D2R*-63.756,T);
+        q_command_L(5) = func_1_cos(time,0,D2R*0,T);  
+    
+        if(time>T){
+            phase ++;
+            time = 0;
+            //RIGHT LEG
+            present_posi_R = jointToPosition_R(q_command_R);
+            present_rot_R = jointToRotMat_R(q_command_R);
+            start_posi_R = goal_posi_R = present_posi_R;
+            start_rot_R = goal_rot_R = present_rot_R;
+    
+            goal_posi_R(Z_) -= 0.2;
+            goal_rot_R = EulerZyxToRotMat(0*D2R, 0*D2R, 0*D2R);
+    
+            C_err_R = goal_rot_R*start_rot_R.transpose();
+            a_axis_R = rotMatToAngleAxis(C_err_R);
+    
+            //LEFT_LEG
+            present_posi_L = jointToPosition_L(q_command_L);
+            present_rot_L = jointToRotMat_L(q_command_L);
+            start_posi_L = goal_posi_L = present_posi_L;
+            start_rot_L = goal_rot_L = present_rot_L;
+    
+            goal_posi_L(Z_) -= 0.2;
+            goal_rot_L = EulerZyxToRotMat(0*D2R, 0*D2R, 0*D2R);
+    
+            C_err_L = goal_rot_L*start_rot_L.transpose();
+            a_axis_L = rotMatToAngleAxis(C_err_L);
+    
+        }
     }
-*/
-
-//Practice 6-1
-
-//
-//VectorXd q_zero(6);
-//q_zero<<0,0,0,0,0,0;
-//
-//
-//start_posi = jointToPosition(q_zero);
-//goal_posi<<0,0.105,-0.55;
-//command_rot<<1,0,0,\
-//             0,1,0,\
-//             0,0,1;
-//
-//if(time<T){
-//    command_posi = func_1_cos(time,start_posi, goal_posi, T);
-//    q_command = inverseKinematics(command_posi,command_rot,,0.001);
-//    q0 = q_command;
-//    joint[LHY].targetRadian = q_command(0);
-//    joint[LHR].targetRadian = q_command(1);
-//    joint[LHP].targetRadian = q_command(2);
-//    joint[LKN].targetRadian = q_command(3);
-//    joint[LAP].targetRadian = q_command(4);
-//    joint[LAR].targetRadian = q_command(5);
-//}
-//
-//
-
- 
-
-
-
-if(phase == 0 and time>2){
-    phase++;
-    time = 0;
-}
-if(phase == 0){
-    q_command_R<<0,0,0,0,0,0;
-    q_command_L<<0,0,0,0,0,0;
-    q_present_R<<0,0,0,0,0,0;
-    q_present_L<<0,0,0,0,0,0;
-    q0_R <<0, 0, -30, 60, -30, 0;
-    q0_L <<0, 0, -30, 60, -30, 0;
-    q0_R = q0_R*D2R;
-    q0_L = q0_L*D2R;
-}
-
-/*
-
-if(phase == 1){
-    //cout<<"phase 1"<<endl;
-    q_present(0) = 0.0; //joint[LHY].actualRadian;
-    q_present(1) = 0.0; //joint[LHR].actualRadian;
-    q_present(2) = 0.0; //joint[LHP].actualRadian;
-    q_present(3) = 0.0; //joint[LKN].actualRadian;
-    q_present(4) = 0.0; //joint[LAP].actualRadian;
-    q_present(5) = 0.0; //joint[LAR].actualRadian;
-
-    present_posi = jointToPosition(q_present);
-    present_rot = jointToRotMat(q_present);
-
-    start_posi = goal_posi  = present_posi;  //초기화
-    start_rot = goal_rot = present_rot;     //초기화
-
-    q_command = q_present;
-
-    q0 <<0, 0, -30, 60, -30, 0;
-    q0 = q0*D2R;
-
-    t = 0.0;
-
-    phase++;
-
-}
-*/
-else if(phase == 1){
-    q_command_R(0) = func_1_cos(time,0,D2R*0,T);
-    q_command_R(1) = func_1_cos(time,0,D2R*0,T);
-    q_command_R(2) = func_1_cos(time,0,D2R*-63.756,T);
-    q_command_R(3) = func_1_cos(time,0,D2R*127.512,T);
-    q_command_R(4) = func_1_cos(time,0,D2R*-63.756,T);
-    q_command_R(5) = func_1_cos(time,0,D2R*0,T);    
-
-    q_command_L(0) = func_1_cos(time,0,D2R*0,T);
-    q_command_L(1) = func_1_cos(time,0,D2R*0,T);
-    q_command_L(2) = func_1_cos(time,0,D2R*-63.756,T);
-    q_command_L(3) = func_1_cos(time,0,D2R*127.512,T);
-    q_command_L(4) = func_1_cos(time,0,D2R*-63.756,T);
-    q_command_L(5) = func_1_cos(time,0,D2R*0,T);  
-
-    if(time>T){
-        phase ++;
-        time = 0;
-        //RIGHT LEG
-        present_posi_R = jointToPosition_R(q_command_R);
-        present_rot_R = jointToRotMat_R(q_command_R);
-        start_posi_R = goal_posi_R = present_posi_R;
-        start_rot_R = goal_rot_R = present_rot_R;
-
-        goal_posi_R(Z_) -= 0.2;
-        goal_rot_R = EulerZyxToRotMat(0*D2R, 0*D2R, 0*D2R);
-
-        C_err_R = goal_rot_R*start_rot_R.transpose();
-        a_axis_R = rotMatToAngleAxis(C_err_R);
-
-        //LEFT_LEG
-        present_posi_L = jointToPosition_L(q_command_L);
-        present_rot_L = jointToRotMat_L(q_command_L);
-        start_posi_L = goal_posi_L = present_posi_L;
-        start_rot_L = goal_rot_L = present_rot_L;
-
-        goal_posi_L(Z_) -= 0.2;
-        goal_rot_L = EulerZyxToRotMat(0*D2R, 0*D2R, 0*D2R);
-
-        C_err_L = goal_rot_L*start_rot_L.transpose();
-        a_axis_L = rotMatToAngleAxis(C_err_L);
-
-    }
-}
-
-
-else if(phase == 2){ //walk ready pose
-    //cout<<"phase 2"<<endl;
-    //goal_posi<<0,0.105,-0.55;
-    //goal_rot = EulerZyxToRotMat(0*D2R, 0*D2R, 40*D2R);
-
-}
-
-else if(phase == 3){ //walk ready pose
-    //cout<<"phase 2"<<endl;
-   // goal_posi(2) -= 0.2;
-    //goal_posi<<0,0.105,-0.55;
-    //goal_rot = EulerZyxToRotMat(0, 40*D2R, 0*D2R);     
-
-}
+    
 
    // C_err = goal_rot*start_rot.transpose();
    // a_axis = rotMatToAngleAxis(C_err);
@@ -1688,7 +1676,28 @@ else if(phase == 3){ //walk ready pose
             C_err_L = goal_rot_L*start_rot_L.transpose();
             a_axis_L = rotMatToAngleAxis(C_err_L);
         }
-        else if(phase == 4){  //4->5 left foot down
+        else if(phase == 4){  //3->4 left foot foward move
+            phase ++;
+
+            //RIGHT_LEG
+            start_posi_R = goal_posi_R;
+            start_rot_R = goal_rot_R;
+
+            //goal_posi_R(Z_) -= 0.2;
+            goal_rot_R = EulerZyxToRotMat(0, 0*D2R, 0*D2R);
+            C_err_R = goal_rot_R*start_rot_R.transpose();
+            a_axis_R = rotMatToAngleAxis(C_err_R);
+
+            //LEFT_LEG
+            start_posi_L = goal_posi_L;
+            start_rot_L = goal_rot_L;
+            //goal_posi<<0,0.105,-0.55;
+            goal_posi_L(X_) += fb_step;
+            goal_rot_L = EulerZyxToRotMat(0, 0*D2R, 0*D2R);
+            C_err_L = goal_rot_L*start_rot_L.transpose();
+            a_axis_L = rotMatToAngleAxis(C_err_L);
+        }
+        else if(phase == 5){  //5->6 left foot down
             phase ++;
 
             //RIGHT_LEG
@@ -1707,26 +1716,6 @@ else if(phase == 3){ //walk ready pose
             C_err_L = goal_rot_L*start_rot_L.transpose();
             a_axis_L = rotMatToAngleAxis(C_err_L);
         }
-        else if(phase == 5){
-            phase ++;
-
-            //RIGHT_LEG
-            start_posi_R = goal_posi_R;
-            start_rot_R = goal_rot_R;
-            goal_posi_R(Y_) -= (0.105+0.035);
-            goal_rot_R = EulerZyxToRotMat(0, 0*D2R, 0*D2R);
-            C_err_R = goal_rot_R*start_rot_R.transpose();
-            a_axis_R = rotMatToAngleAxis(C_err_R);
-
-            //LEFT_LEG
-            start_posi_L = goal_posi_L;
-            start_rot_L = goal_rot_L;
-
-            goal_posi_L(Y_) -= (0.105+0.035);
-            goal_rot_L = EulerZyxToRotMat(0, 0*D2R, 0*D2R);
-            C_err_L = goal_rot_L*start_rot_L.transpose();
-            a_axis_L = rotMatToAngleAxis(C_err_L);
-        }
         else if(phase == 6){
             phase ++;
 
@@ -1734,6 +1723,28 @@ else if(phase == 3){ //walk ready pose
             start_posi_R = goal_posi_R;
             start_rot_R = goal_rot_R;
             goal_posi_R(Y_) -= (0.105+0.035);
+            goal_posi_R(X_) -= 0.5*fb_step;
+            goal_rot_R = EulerZyxToRotMat(0, 0*D2R, 0*D2R);
+            C_err_R = goal_rot_R*start_rot_R.transpose();
+            a_axis_R = rotMatToAngleAxis(C_err_R);
+
+            //LEFT_LEG
+            start_posi_L = goal_posi_L;
+            start_rot_L = goal_rot_L;
+
+            goal_posi_L(Y_) -= (0.105+0.035);
+            goal_posi_L(X_) -= 0.5*fb_step;
+            goal_rot_L = EulerZyxToRotMat(0, 0*D2R, 0*D2R);
+            C_err_L = goal_rot_L*start_rot_L.transpose();
+            a_axis_L = rotMatToAngleAxis(C_err_L);
+        }
+        else if(phase == 7){
+            phase ++;
+
+            //RIGHT_LEG
+            start_posi_R = goal_posi_R;
+            start_rot_R = goal_rot_R;
+            goal_posi_R(Y_) -= (0.105+0.035);
             goal_rot_R = EulerZyxToRotMat(0, 0*D2R, 0*D2R);
             C_err_R = goal_rot_R*start_rot_R.transpose();
             a_axis_R = rotMatToAngleAxis(C_err_R);
@@ -1747,7 +1758,7 @@ else if(phase == 3){ //walk ready pose
             C_err_L = goal_rot_L*start_rot_L.transpose();
             a_axis_L = rotMatToAngleAxis(C_err_L);
         }
-        else if(phase == 7){  // 7->8 right foot up
+        else if(phase == 8){  // 8->9 right foot up
             phase ++;
 
             //RIGHT_LEG
@@ -1768,7 +1779,28 @@ else if(phase == 3){ //walk ready pose
             C_err_L = goal_rot_L*start_rot_L.transpose();
             a_axis_L = rotMatToAngleAxis(C_err_L);
         }
-        else if(phase == 8){  // 8->9 right foot down
+        else if(phase == 9){  // 9->10 right foot move foward
+            phase ++;
+
+            //RIGHT_LEG
+            start_posi_R = goal_posi_R;
+            start_rot_R = goal_rot_R;
+
+            goal_posi_R(X_) += fb_step;
+
+            goal_rot_R = EulerZyxToRotMat(0, 0*D2R, 0*D2R);
+            C_err_R = goal_rot_R*start_rot_R.transpose();
+            a_axis_R = rotMatToAngleAxis(C_err_R);
+
+            //LEFT_LEG
+            start_posi_L = goal_posi_L;
+            start_rot_L = goal_rot_L;
+
+            goal_rot_L = EulerZyxToRotMat(0, 0*D2R, 0*D2R);
+            C_err_L = goal_rot_L*start_rot_L.transpose();
+            a_axis_L = rotMatToAngleAxis(C_err_L);
+        }
+        else if(phase == 10){  // 10->11 right foot down
             phase ++;
 
             //RIGHT_LEG
@@ -1789,7 +1821,7 @@ else if(phase == 3){ //walk ready pose
             C_err_L = goal_rot_L*start_rot_L.transpose();
             a_axis_L = rotMatToAngleAxis(C_err_L);
         }
-        else if(phase == 9){  
+        else if(phase == 11){  
             phase = 2;
 
             //RIGHT_LEG
@@ -1797,6 +1829,7 @@ else if(phase == 3){ //walk ready pose
             start_rot_R = goal_rot_R;
 
             goal_posi_R(Y_) += (0.105+0.035);
+            goal_posi_R(X_) -= 0.5*fb_step;
 
             goal_rot_R = EulerZyxToRotMat(0*D2R, 0*D2R, 0*D2R);
             C_err_R = goal_rot_R*start_rot_R.transpose();
@@ -1807,11 +1840,13 @@ else if(phase == 3){ //walk ready pose
             start_rot_L = goal_rot_L;
 
             goal_posi_L(Y_) += (0.105+0.035);
+            goal_posi_L(X_) -= 0.5*fb_step;
 
             goal_rot_L = EulerZyxToRotMat(0*D2R, 0*D2R, 0*D2R);
             C_err_L = goal_rot_L*start_rot_L.transpose();
             a_axis_L = rotMatToAngleAxis(C_err_L);
         }
+
 
         //start_posi = goal_posi;
         //start_rot = goal_rot;
