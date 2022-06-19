@@ -75,12 +75,18 @@ typedef struct _AngleAxis{
 VectorXd q_cal2; //not using
 
 //* Time Variables ****
-double T = 3;        //sec
+double T = 2;        //sec
 double t = T + 1.0;
 double dt_ms = 1.0;  //ms
 
 //* Phase Step ****
 int phase = 0;
+
+int go_straight_count = 0;
+int turn_left_count = 0;
+
+int walking_phase = 0;
+bool is_running = true;
 
 //* to check ik computing time
 static struct timespec ik_start_time;
@@ -130,6 +136,7 @@ AngleAxis a_axis_R;
 //* step
 double fb_step = 0.2; //[m]
 double rl_turn = 30;  //[deg]
+double foot_height = 0.2; //[m]
 
 double foot_distance = 0.105;  //distance from center
 
@@ -1570,7 +1577,8 @@ void gazebo::rok3_plugin::UpdateAlgorithm()
         q_command_L(5) = func_1_cos(time,0,D2R*0,T);  
     
         if(time>T){
-            phase ++;
+           phase ++;
+           //phase = 12;
             time = 0;
             //RIGHT LEG
             present_posi_R = jointToPosition_R(q_command_R);
@@ -1671,7 +1679,7 @@ void gazebo::rok3_plugin::UpdateAlgorithm()
             start_posi_L = goal_posi_L;
             start_rot_L = goal_rot_L;
             //goal_posi<<0,0.105,-0.55;
-            goal_posi_L(Z_) += 0.2;
+            goal_posi_L(Z_) += foot_height;
             goal_posi_L(X_) += 0.5*fb_step;
             goal_rot_L = EulerZyxToRotMat(0, 0*D2R, 0*D2R);
             C_err_L = goal_rot_L*start_rot_L.transpose();
@@ -1691,7 +1699,7 @@ void gazebo::rok3_plugin::UpdateAlgorithm()
             //LEFT_LEG
             start_posi_L = goal_posi_L;
             start_rot_L = goal_rot_L;
-            goal_posi_L(Z_) -= 0.2;
+            goal_posi_L(Z_) -= foot_height;
             goal_posi_L(X_) += 0.5*fb_step;
             goal_rot_L = EulerZyxToRotMat(0, 0*D2R, 0*D2R);
             C_err_L = goal_rot_L*start_rot_L.transpose();
@@ -1726,7 +1734,7 @@ void gazebo::rok3_plugin::UpdateAlgorithm()
             start_posi_R = goal_posi_R;
             start_rot_R = goal_rot_R;
 
-            goal_posi_R(Z_) += 0.2;
+            goal_posi_R(Z_) += foot_height;
             goal_posi_R(X_) += 0.5*fb_step;
 
             goal_rot_R = EulerZyxToRotMat(0, 0*D2R, 0*D2R);
@@ -1748,7 +1756,7 @@ void gazebo::rok3_plugin::UpdateAlgorithm()
             start_posi_R = goal_posi_R;
             start_rot_R = goal_rot_R;
 
-            goal_posi_R(Z_) -= 0.2;
+            goal_posi_R(Z_) -= foot_height;
             goal_posi_R(X_) += 0.5*fb_step;
 
             goal_rot_R = EulerZyxToRotMat(0, 0*D2R, 0*D2R);
@@ -1763,16 +1771,127 @@ void gazebo::rok3_plugin::UpdateAlgorithm()
             C_err_L = goal_rot_L*start_rot_L.transpose();
             a_axis_L = rotMatToAngleAxis(C_err_L);
         }
-        else if(phase == 8){  
-            phase = 2;
+        else if(phase == 8){ 
+            go_straight_count ++;
+            if(walking_phase==0){
+                if(go_straight_count>=3){
+                    walking_phase++;
+                    go_straight_count = 0;
+                    phase = 12;
+                }
+                else{
+                    phase = 2;
+                }
+            }
+            else if(walking_phase == 2){
+                if(go_straight_count>=2){
+                    //walking_phase++;
+                    //go_straight_count = 0;
+                    //phase = 12;
+                    //stop
+                    
+                    phase = 100;
+                }
+                else{
+                    phase = 2;
+                }                
+            }
+
+            
+
+            //RIGHT_LEG
+            start_posi_R = goal_posi_R;
+            start_rot_R = goal_rot_R;    
+            goal_posi_R(Y_) += (0.105+0.035);    
+            goal_rot_R = EulerZyxToRotMat(0*D2R, 0*D2R, 0*D2R);
+            C_err_R = goal_rot_R*start_rot_R.transpose();
+            a_axis_R = rotMatToAngleAxis(C_err_R);    
+            //LEFT_LEG
+            start_posi_L = goal_posi_L;
+            start_rot_L = goal_rot_L;    
+            goal_posi_L(Y_) += (0.105+0.035);    
+            goal_rot_L = EulerZyxToRotMat(0*D2R, 0*D2R, 0*D2R);
+            C_err_L = goal_rot_L*start_rot_L.transpose();
+            a_axis_L = rotMatToAngleAxis(C_err_L);
+            
+        }
+
+
+
+// ************ Turn **************************
+
+        else if(phase == 12){   
+            phase++;
+
+            //RIGHT LEG
+            start_posi_R = goal_posi_R;
+            start_rot_R = goal_rot_R;
+            //goal_posi<<0,0.105,-0.55;
+            
+            goal_posi_R(Y_) += (0.105+0.035);
+            goal_rot_R = EulerZyxToRotMat(0*D2R, 0*D2R, 0*D2R);
+            C_err_R = goal_rot_R*start_rot_R.transpose();
+            a_axis_R = rotMatToAngleAxis(C_err_R);
+
+            //LEFT LEG
+            start_posi_L = goal_posi_L;
+            start_rot_L = goal_rot_L;
+            //goal_posi<<0,0.105,-0.55;
+            goal_posi_L(Y_) += (0.105+0.035);
+            goal_rot_L = EulerZyxToRotMat(0*D2R, 0*D2R, 0*D2R);
+            C_err_L = goal_rot_L*start_rot_L.transpose();
+            a_axis_L = rotMatToAngleAxis(C_err_L);
+        }
+        else if(phase == 13){  //3->4 left foot up
+            phase ++;
 
             //RIGHT_LEG
             start_posi_R = goal_posi_R;
             start_rot_R = goal_rot_R;
 
-            goal_posi_R(Y_) += (0.105+0.035);
+            //goal_posi_R(Z_) -= 0.2;
+            goal_rot_R = EulerZyxToRotMat(-0.25*D2R*rl_turn, 0*D2R, 0*D2R);
+            C_err_R = goal_rot_R*start_rot_R.transpose();
+            a_axis_R = rotMatToAngleAxis(C_err_R);
 
-            goal_rot_R = EulerZyxToRotMat(0*D2R, 0*D2R, 0*D2R);
+            //LEFT_LEG
+            start_posi_L = goal_posi_L;
+            start_rot_L = goal_rot_L;
+            //goal_posi<<0,0.105,-0.55;
+            goal_posi_L(Z_) += foot_height;
+            goal_rot_L = EulerZyxToRotMat(+1*0.25*rl_turn*D2R, 0*D2R,0*D2R);
+            C_err_L = goal_rot_L*start_rot_L.transpose();
+            a_axis_L = rotMatToAngleAxis(C_err_L);
+        }
+        else if(phase == 14){  //4->5 left foot down
+            phase ++;
+
+            //RIGHT_LEG
+            start_posi_R = goal_posi_R;
+            start_rot_R = goal_rot_R;
+            //goal_posi(Z_) -= 0.2;
+            goal_rot_R = EulerZyxToRotMat(-0.5*D2R*rl_turn, 0*D2R, 0*D2R);
+            C_err_R = goal_rot_R*start_rot_R.transpose();
+            a_axis_R = rotMatToAngleAxis(C_err_R);
+
+            //LEFT_LEG
+            start_posi_L = goal_posi_L;
+            start_rot_L = goal_rot_L;
+            goal_posi_L(Z_) -= foot_height;
+            goal_rot_L = EulerZyxToRotMat(+1*0.5*rl_turn*D2R, 0*D2R,0*D2R);
+            C_err_L = goal_rot_L*start_rot_L.transpose();
+            a_axis_L = rotMatToAngleAxis(C_err_L);
+        }
+        else if(phase == 15){
+            phase ++;
+
+            //RIGHT_LEG
+            start_posi_R = goal_posi_R;
+            start_rot_R = goal_rot_R;
+
+            goal_posi_R(Y_) += -1.0*2.0*(0.105+0.035);
+            
+            //goal_rot_R = EulerZyxToRotMat(0, 0*D2R, 0*D2R);
             C_err_R = goal_rot_R*start_rot_R.transpose();
             a_axis_R = rotMatToAngleAxis(C_err_R);
 
@@ -1780,17 +1899,100 @@ void gazebo::rok3_plugin::UpdateAlgorithm()
             start_posi_L = goal_posi_L;
             start_rot_L = goal_rot_L;
 
-            goal_posi_L(Y_) += (0.105+0.035);
+            goal_posi_L(Y_) += -1.0*2.0*(0.105+0.035);
+
+            //goal_rot_L = EulerZyxToRotMat(+1*rl_turn*D2R, 0*D2R,0*D2R);
+            C_err_L = goal_rot_L*start_rot_L.transpose();
+            a_axis_L = rotMatToAngleAxis(C_err_L);
+        }
+        else if(phase == 16){  // 6->7 right foot up
+            phase ++;
+
+            //RIGHT_LEG
+            start_posi_R = goal_posi_R;
+            start_rot_R = goal_rot_R;
+
+            goal_posi_R(Z_) += foot_height;
+            
+            goal_rot_R = EulerZyxToRotMat(-0.25*D2R, 0*D2R,0*D2R);
+            C_err_R = goal_rot_R*start_rot_R.transpose();
+            a_axis_R = rotMatToAngleAxis(C_err_R);
+
+            //LEFT_LEG 
+            start_posi_L = goal_posi_L;
+            start_rot_L = goal_rot_L;
+
+            goal_rot_L = EulerZyxToRotMat(0.25*D2R, 0*D2R, 0*D2R);
+            C_err_L = goal_rot_L*start_rot_L.transpose();
+            a_axis_L = rotMatToAngleAxis(C_err_L);
+        }
+        else if(phase == 17){  // 7->8 right foot down
+            phase ++;
+
+            //RIGHT_LEG
+            start_posi_R = goal_posi_R;
+            start_rot_R = goal_rot_R;
+
+            goal_posi_R(Z_) -= foot_height;
+
+            goal_rot_R = EulerZyxToRotMat(0*D2R, 0*D2R,0*D2R);
+            C_err_R = goal_rot_R*start_rot_R.transpose();
+            a_axis_R = rotMatToAngleAxis(C_err_R);
+
+            //LEFT_LEG
+            start_posi_L = goal_posi_L;
+            start_rot_L = goal_rot_L;
 
             goal_rot_L = EulerZyxToRotMat(0*D2R, 0*D2R, 0*D2R);
             C_err_L = goal_rot_L*start_rot_L.transpose();
             a_axis_L = rotMatToAngleAxis(C_err_L);
         }
+        else if(phase == 18){  
+            turn_left_count++;
+            if(walking_phase == 1){
+                if(turn_left_count ==3){
+                    turn_left_count = 0;
+                    walking_phase++;
+                    phase = 2;
+                }
+                else
+                    phase = 12;
+            }
+            if(is_running){
+                //RIGHT_LEG
+                start_posi_R = goal_posi_R;
+                start_rot_R = goal_rot_R;
+    
+                goal_posi_R(Y_) += (0.105+0.035);
+    
+                goal_rot_R = EulerZyxToRotMat(0*D2R, 0*D2R, 0*D2R);
+                C_err_R = goal_rot_R*start_rot_R.transpose();
+                a_axis_R = rotMatToAngleAxis(C_err_R);
+    
+                //LEFT_LEG
+                start_posi_L = goal_posi_L;
+                start_rot_L = goal_rot_L;
+    
+                goal_posi_L(Y_)  += (0.105+0.035);
+    
+                goal_rot_L = EulerZyxToRotMat(0*D2R, 0*D2R, 0*D2R);
+                C_err_L = goal_rot_L*start_rot_L.transpose();
+                a_axis_L = rotMatToAngleAxis(C_err_L);
+            }
+        }
+        else if(phase == 100)
+            phase++;
+
+  
+
 
 
         //start_posi = goal_posi;
         //start_rot = goal_rot;
         time = 0.0;
+        //Stop Walking
+        if(phase == 101)
+            time = T;
     }
 
     //t+=dt_ms;
