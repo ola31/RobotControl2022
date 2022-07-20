@@ -230,6 +230,7 @@ namespace gazebo
         //*** Functions for RoK-3 Simulation in Gazebo ***//
         void Load(physics::ModelPtr _model, sdf::ElementPtr /*_sdf*/); // Loading model data and initializing the system before simulation 
         void UpdateAlgorithm(); // Algorithm update while simulation
+        void UpdateAlgorithm2();
 
         void jointController(); // Joint Controller for each joint
 
@@ -1371,6 +1372,16 @@ Vector3d func_1_cos(double t, Vector3d init, Vector3d final, double T){
     des(2) = (final(2) - init(2))*0.5*(1.0 - cos(PI*(t/T))) + init(2);
     return des;
 }
+VectorXd func_1_cos(double t, VectorXd init, VectorXd final, double T){
+    VectorXd des(6);
+    des(0) = (final(0) - init(0))*0.5*(1.0 - cos(PI*(t/T))) + init(0);
+    des(1) = (final(1) - init(1))*0.5*(1.0 - cos(PI*(t/T))) + init(1);
+    des(2) = (final(2) - init(2))*0.5*(1.0 - cos(PI*(t/T))) + init(2);
+    des(3) = (final(3) - init(3))*0.5*(1.0 - cos(PI*(t/T))) + init(3);
+    des(4) = (final(4) - init(4))*0.5*(1.0 - cos(PI*(t/T))) + init(4);
+    des(5) = (final(5) - init(5))*0.5*(1.0 - cos(PI*(t/T))) + init(5);
+    return des;
+}
 
 
 void gazebo::rok3_plugin::Load(physics::ModelPtr _model, sdf::ElementPtr /*_sdf*/)
@@ -1424,10 +1435,12 @@ void gazebo::rok3_plugin::Load(physics::ModelPtr _model, sdf::ElementPtr /*_sdf*
         last_update_time = model->GetWorld()->GetSimTime();
     #endif
 
-    update_connection = event::Events::ConnectWorldUpdateBegin(boost::bind(&rok3_plugin::UpdateAlgorithm, this));
-    
+    //update_connection = event::Events::ConnectWorldUpdateBegin(boost::bind(&rok3_plugin::UpdateAlgorithm, this));
+    update_connection = event::Events::ConnectWorldUpdateBegin(boost::bind(&rok3_plugin::UpdateAlgorithm2, this));
     
     Practice();
+
+    t = 0.0;
 
 }
 
@@ -2058,6 +2071,7 @@ void gazebo::rok3_plugin::UpdateAlgorithm()
     jointController();
 }
 
+
 void gazebo::rok3_plugin::jointController()
 {
     /*
@@ -2213,12 +2227,12 @@ void gazebo::rok3_plugin::SetJointPIDgain()
     /*
      * Set each joint PID gain for joint control
      */
-    joint[LHY].Kp = 2*  2000;
-    joint[LHR].Kp = 2*  9000;
-    joint[LHP].Kp = 2*  2000;
-    joint[LKN].Kp = 2*  5000;
-    joint[LAP].Kp = 2*  3000;
-    joint[LAR].Kp = 2*  3000;
+    joint[LHY].Kp = 2.0* 2*  2000;
+    joint[LHR].Kp = 2.0* 2*  9000;
+    joint[LHP].Kp = 2.0* 2*  2000;
+    joint[LKN].Kp = 2.0* 2*  5000;
+    joint[LAP].Kp = 2.0* 2*  3000;
+    joint[LAR].Kp = 2.0* 2*  3000;
 
     joint[RHY].Kp = joint[LHY].Kp;
     joint[RHR].Kp = joint[LHR].Kp;
@@ -2229,12 +2243,12 @@ void gazebo::rok3_plugin::SetJointPIDgain()
 
     joint[WST].Kp = 2* 2.;
  
-    joint[LHY].Kd = 2* 2.;
-    joint[LHR].Kd = 2* 2.;
-    joint[LHP].Kd = 2* 2.;
-    joint[LKN].Kd = 2* 4.;
-    joint[LAP].Kd = 2* 2.;
-    joint[LAR].Kd = 2* 2.;
+    joint[LHY].Kd =   2* 2.;
+    joint[LHR].Kd =   2* 2.;
+    joint[LHP].Kd =   2* 2.;
+    joint[LKN].Kd =   2* 4.;
+    joint[LAP].Kd =   2* 2.;
+    joint[LAR].Kd =   2* 2.;
 
     joint[RHY].Kd = joint[LHY].Kd;
     joint[RHR].Kd = joint[LHR].Kd;
@@ -2246,3 +2260,189 @@ void gazebo::rok3_plugin::SetJointPIDgain()
     joint[WST].Kd = 2.;
 }
 
+
+MatrixXd rotMat_X(double pitch){
+  MatrixXd tmp(3,3);
+  double s = sin(pitch);
+  double c = cos(pitch);
+  tmp<<1,  0,  0,
+       0,  c, -s,
+       0,  s,  s;
+  return tmp;
+}
+MatrixXd rotMat_Y(double pitch){
+  MatrixXd tmp(3,3);
+  double s = sin(pitch);
+  double c = cos(pitch);
+  tmp<< c,  0,  s,
+        0,  1,  0,
+       -s,  0,  c;
+  return tmp;
+}
+MatrixXd rotMat_Z(double pitch){
+  MatrixXd tmp(3,3);
+  double s = sin(pitch);
+  double c = cos(pitch);
+  tmp<< c, -s,  0,
+        s,  c,  0,
+        0,  0,  1;
+  return tmp;
+}
+
+
+VectorXd IK_Geometric(MatrixXd Body,double D, double A,double B, double AH, MatrixXd Foot){
+  Matrix3d Body_R, Foot_R;
+  Vector3d Body_P, Foot_P;
+
+  VectorXd q(6);
+
+  Body_R = Body.block(0,0,3,3);
+  Foot_R = Foot.block(0,0,3,3);
+
+  Body_P = Body.block(0,3,3,1);
+  Foot_P = Foot.block(0,3,3,1);
+
+  Vector3d D_ = {0,D,0};
+  Vector3d AH_ = {0,0,AH};
+
+  Vector3d r = Foot_R.transpose() * ((Body_P + Body_R * D_) - (Foot_P + Foot_R*AH_));
+
+  double C = r.norm();
+
+  double cos_alpha = (A*A + B*B - C*C)/(2.0*A*B);
+  double alpha;
+
+  if(cos_alpha>=1) alpha = 0.0;
+  else if(cos_alpha<=0.0) alpha = PI;
+  else alpha = acos((A*A + B*B - C*C)/(2.0*A*B));
+
+  double alpha2 = acos((C*C + B*B - A*A)/(2.0*A*C));
+
+  double beta = atan2(r(Z_),r(Y_));
+  q(3) = abs(PI - alpha); //Knee
+  q(4) = atan2(r(Z_), r(X_)) - alpha2 - (PI/2.0); //ankle pitch
+  q(5) = (PI/2.0) - beta; //ankle roll
+
+
+  MatrixXd R(3,3);
+  R = Body_R.transpose()*Foot_R*rotMat_X(-q(5))*rotMat_Y(-q(4))*rotMat_Y(-q(3));
+
+  q(0) = atan2(-R(0,1), R(1,1)); //hip yaw
+  q(1) = atan2(R(2,1), -R(0,1)*sin(q(0)) + R(1,1)*cos(q(0)) ); //hip roll
+  q(2) = atan2(-R(2,0), R(2,2));
+
+  return q;
+}
+
+void gazebo::rok3_plugin::UpdateAlgorithm2()
+{
+    /*
+     * Algorithm update while simulation
+     */
+
+    //* UPDATE TIME : 1ms
+    ///common::Time current_time = model->GetWorld()->GetSimTime();
+    #if GAZEBO_MAJOR_VERSION >= 8
+        common::Time current_time = model->GetWorld()->SimTime();
+    #else
+        common::Time current_time = model->GetWorld()->GetSimTime();
+    #endif
+
+    dt = current_time.Double() - last_update_time.Double();
+     //   cout << "dt:" << dt << endl;
+    time = time + dt;
+    //cout << "time:" << time << endl;
+
+    //* setting for getting dt at next step
+    last_update_time = current_time;
+
+
+    //* Read Sensors data
+    GetjointData();
+
+    MatrixXd Body(4,4);
+    MatrixXd Foot_L(4,4);
+    MatrixXd Foot_R(4,4);
+
+    double body_z = 1.0;//m
+    double foot_z = 0.6; //m
+    double foot_y = 0.105;//m
+    double foot_x = 0.1;//m
+
+    Body <<  1,0,0,0,
+             0,1,0,0,
+             0,0,1,body_z,
+             0,0,0,1;
+
+    Foot_L <<1,0,0,foot_x,
+             0,1,0,-foot_y,
+             0,0,1,foot_z,
+             0,0,0,1;
+
+    Foot_R <<1,0,0,-foot_x,
+             0,1,0,foot_y,
+             0,0,1,foot_z,
+             0,0,0,1;
+
+    VectorXd q_L(6);
+    VectorXd q_R(6);
+    VectorXd init(6);
+    init<<0,0,0,0,0,0;
+
+    q_L = IK_Geometric(Body, -foot_y, 0.35, 0.35, 0.09, Foot_L);
+    q_R = IK_Geometric(Body, foot_y, 0.35, 0.35, 0.09, Foot_R);
+
+    //t = 0.0;
+    if(t<T){
+      q_command_L = func_1_cos(t,init,q_L,T);
+      q_command_R = func_1_cos(t,init,q_R,T);
+      t += dt;
+    }
+
+
+    //q_command_L = q_L;
+    //q_command_R = q_R;
+
+
+    //* Target Angles
+
+    joint[LHY].targetRadian = q_command_L(0);//*D2R;
+    joint[LHR].targetRadian = q_command_L(1);//*D2R;
+    joint[LHP].targetRadian = q_command_L(2);//*D2R;
+    joint[LKN].targetRadian = q_command_L(3);//*D2R;
+    joint[LAP].targetRadian = q_command_L(4);//*D2R;
+    joint[LAR].targetRadian = q_command_L(5);//*D2R;
+
+    joint[RHY].targetRadian = q_command_R(0);//*D2R;
+    joint[RHR].targetRadian = q_command_R(1);//*D2R;
+    joint[RHP].targetRadian = q_command_R(2);//*D2R;
+    joint[RKN].targetRadian = q_command_R(3);//*D2R;
+    joint[RAP].targetRadian = q_command_R(4);//*D2R;
+    joint[RAR].targetRadian = q_command_R(5);//*D2R;
+
+
+    //* Publish topics
+    LHY_msg.data = q_command_L(0);
+    LHR_msg.data = q_command_L(1);
+    LHP_msg.data = q_command_L(2);
+    LKN_msg.data = q_command_L(3);
+    LAP_msg.data = q_command_L(4);
+    LAR_msg.data = q_command_L(5);
+
+    LHY_pub.publish(LHY_msg);
+    LHR_pub.publish(LHR_msg);
+    LHP_pub.publish(LHP_msg);
+    LKN_pub.publish(LKN_msg);
+    LAP_pub.publish(LAP_msg);
+    LAR_pub.publish(LAR_msg);
+
+
+
+
+  /*First motion Complete.*/
+
+
+
+    //* Joint Controller
+    jointController();
+}
